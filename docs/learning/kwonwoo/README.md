@@ -12,6 +12,7 @@
 
 | 날짜 | 질문 | 노트 |
 |---|---|---|
+| 2026-11-12 | PR 458번과 측정 브랜치(F) 이후 성능 지표를 더 끌어올릴 방안과 트레이드오프 | [qna/2026-11-12-pr458-further-performance-improvements.md](qna/2026-11-12-pr458-further-performance-improvements.md) |
 | 2026-11-11 | 좌석 선점에 Kafka 접수형을 도입하면 어떻게 동작하고 무엇이 좋아지나 | [qna/2026-11-11-seathold-kafka-async-effects.md](qna/2026-11-11-seathold-kafka-async-effects.md) |
 | 2026-11-09 | Windows 시계를 맞추자 통과한 테스트 4건은 왜 실패했나 | [qna/2026-11-09-host-clock-drift-test-failures.md](qna/2026-11-09-host-clock-drift-test-failures.md) |
 | 2026-11-05 | 기존 K1 부하 테스트는 어떻게 진행됐고, 선점만 떼어 재는 방식(K1-H)은 무엇이 다른가 | [qna/2026-11-05-k1-vs-hold-only-scenario.md](qna/2026-11-05-k1-vs-hold-only-scenario.md) |
