@@ -33,7 +33,7 @@
 | [hyoseung](hyoseung/README.md) | 개별 기록 5건, 일지 19일 |
 | [junhyun](junhyun/README.md) | 개별 기록 51건, 일지 5일 |
 | [kangmin](kangmin/README.md) | 개별 기록 42건, 일지 9일 |
-| [kwonwoo](kwonwoo/README.md) | 개별 기록 22건, 일지 10일 |
+| [kwonwoo](kwonwoo/README.md) | 개별 기록 32건, 일지 10일 |
 | [youngeun](youngeun/README.md) | 개별 기록 4건, 일지 0일 |
 
 ## 팀 공통 판단
@@ -42,7 +42,11 @@
 
 | 날짜 | 판단 대상 | 판단자 | AI | 판단 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-14 | 배포 측정 전 좌석 선점 개선안 중 계측 보강·만료 주기·토큰 서명 이동을 차례로 넣어 재고, 풀 크기(ISE-237)·캐시 읽기 메서드(ISE-281)는 contract로 | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-14-pre-deploy-improvements-2-5-6-and-contracts.md) |
 | 2026-11-14 | ISE-271에 PR AI 리뷰는 최소형 전부·위험 PR만 코멘트, 계약 경계 PR은 상대 확인·반나절 뒤 사후 확인으로 의견을 냄 | kangmin | Claude Code | 수용 | 아님 | [기록](kangmin/2026-11-14-ise271-review-minimum-all-comment-risky.md) |
+| 2026-11-13 | 좌석 선점 구조 개선 세 가지(먼저 거절, 잠금 뒤로, 동시 처리 상한)를 AI 추천 순서대로 넣고 단계별로 부하 측정(ADR 0060) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-13-seathold-structure-three-fixes.md) |
+| 2026-11-13 | **AI가 먼저 추천한 SKIP LOCKED를 측정(C2 성공 83→56) 뒤 거부하고 잠금 대기 50ms를 택함(ADR 0059, TS-70)** | kwonwoo | Claude Code | **거부** | 후보 | [기록](kwonwoo/2026-11-13-reject-skip-locked-choose-50ms.md) |
+| 2026-11-13 | 좌석 선점 개선안 중 잠긴 좌석을 기다리지 않기(SKIP LOCKED)를 새 이슈 ISE-261로 먼저 함(뒤에 거부로 바뀜) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-13-seathold-skip-locked-first.md) |
 | 2026-11-13 | Synthetic O1 페르소나 세분화에서 AI가 낸 행동 축 6개 안을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-13-synthetic-persona-six-factors.md) |
 | 2026-11-13 | O1 시나리오 검토 제안 중 2~4번을 받아들이되 그림자 폴러는 multi_device에만 두고, 대기 이탈 비용은 별도 실행 대신 계산으로 보기로 함 | kangmin | Claude Code | 부분 수용 | 후보 | [기록](kangmin/2026-11-13-o1-scenario-review-four-proposals.md) |
 | 2026-11-13 | 대기열 조회만으로 정한 Gateway 통합 상한 64의 측정 범위를 지적하고, 섞인 트래픽에서는 통합 상한을 메모리 안전망으로 올리고 경로별 상한은 측정 뒤에 두자는 추천을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-13-in-flight-limit-as-safety-net-first.md) |
