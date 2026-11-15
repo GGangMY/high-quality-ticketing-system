@@ -19,6 +19,10 @@ public interface SeatHoldInventoryRepository {
     // 다른 회차의 좌석 ID는 결과에서 빠진다. 요청 개수와 비교해 회차 소속을 확인한다
     List<ScheduleSeat> findSeats(Long scheduleId, List<Long> seatIds);
 
+    // findSeats와 같되 회차를 함께 읽는다(DB 왕복 1번). 지운 회차의 좌석은 빠진다. 결과가 비면 회차가 없거나
+    // 좌석 ID가 모두 다른 회차의 것이므로, 호출한 쪽이 findSchedule로 둘을 가른다
+    List<ScheduleSeat> findSeatsWithSchedule(Long scheduleId, List<Long> seatIds);
+
     // 이 트랜잭션의 남은 문장이 행 잠금을 timeout보다 오래 기다리지 않게 한다(SET LOCAL lock_timeout, SA 9-4)
     void applyLockTimeout(Duration timeout);
 

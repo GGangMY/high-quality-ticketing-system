@@ -155,18 +155,23 @@ public class SyncSeatHoldService {
     }
 
     private Decision holdInTransaction(HoldSeatsCommand command, List<Long> seatIds) {
-        var previous = seatHoldRequests.findById(command.requestId());
-        if (previous.isPresent()) {
-            return replay(previous.get(), command, seatIds);
+        // 같은 멱등키 재요청은 첫 결과로 답하고, 다른 요청이 이 토큰을 썼으면 좌석을 잠그기 전에 거절한다(ADR 0053 결정 2).
+        // Note: 두 조회를 한 문장으로 읽는다. 판정 순서(멱등키 → 토큰)는 그대로다(contracts.md 1절 검사 순서)
+        var keyState = seatHoldRequests.findKeyState(command.requestId(), command.entryTokenJti());
+        if (keyState.requestExists()) {
+            var previous = seatHoldRequests.findById(command.requestId())
+                    .orElseThrow(() -> new IllegalStateException("선점 요청 행이 사라졌습니다: " + command.requestId()));
+            return replay(previous, command, seatIds);
         }
-        // 같은 멱등키 재요청은 위에서 첫 결과로 답하고, 다른 요청이 이 토큰을 썼으면 좌석을 잠그기 전에 거절한다(ADR 0053 결정 2)
-        SeatHoldRules.requireUnusedEntryToken(seatHoldRequests, command);
-        var schedule = inventory.findSchedule(command.scheduleId())
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+        if (keyState.tokenActive()) {
+            throw new BusinessException(SeatHoldErrorCode.ENTRY_TOKEN_USED);
+        }
+        var seats = SeatHoldRules.loadSeatsWithSchedule(inventory, command.scheduleId(), seatIds);
+        var schedule = SeatHoldRules.scheduleOf(inventory, command.scheduleId(), seats);
         SeatHoldRules.requireWithinPerUserLimit(schedule, seatIds);
         var now = clock.instant();
         SeatHoldRules.requireOnSale(schedule, now);
-        var seats = findSeatsOfSchedule(schedule.getId(), seatIds);
+        SeatHoldRules.requireAllSeatsOfSchedule(seats, seatIds);
         if (!SeatHoldRules.allHoldable(seats)) {
             return rejectHeldSeats(command, seatIds);
         }
@@ -237,12 +242,4 @@ public class SyncSeatHoldService {
                 .orElseThrow(() -> new BusinessException(SeatHoldErrorCode.SEAT_ALREADY_HELD));
     }
 
-    // 다른 회차의 좌석이나 없는 좌석 ID가 섞이면 조회 결과가 요청보다 적다
-    private List<ScheduleSeat> findSeatsOfSchedule(Long scheduleId, List<Long> seatIds) {
-        var seats = inventory.findSeats(scheduleId, seatIds);
-        if (seats.size() != seatIds.size()) {
-            throw new BusinessException(SeatHoldErrorCode.SEAT_COUNT_MISMATCH);
-        }
-        return seats;
-    }
 }

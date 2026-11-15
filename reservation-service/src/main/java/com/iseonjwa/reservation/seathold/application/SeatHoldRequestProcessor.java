@@ -132,12 +132,9 @@ public class SeatHoldRequestProcessor {
             requests.markRejected(event.requestId(), TIMEOUT, now);
             return Outcome.LATE;
         }
-        var schedule = inventory.findSchedule(event.scheduleId())
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
-        var seats = inventory.findSeats(schedule.getId(), event.seatIds());
-        if (seats.size() != event.seatIds().size()) {
-            throw new BusinessException(SeatHoldErrorCode.SEAT_COUNT_MISMATCH);
-        }
+        var seats = SeatHoldRules.loadSeatsWithSchedule(inventory, event.scheduleId(), event.seatIds());
+        var schedule = SeatHoldRules.scheduleOf(inventory, event.scheduleId(), seats);
+        SeatHoldRules.requireAllSeatsOfSchedule(seats, event.seatIds());
         if (!SeatHoldRules.allHoldable(seats)) {
             // Note: 같은 파티션의 앞 메시지는 커밋을 마쳤으므로 읽은 상태가 최신이다. 오픈 순간에는 같은 좌석 요청이 첫 처리 전에
             // 한꺼번에 접수되어 접수 검사를 모두 통과하므로, 진 요청 대부분이 여기서 걸린다. 아무것도 바꾸지 않았으니 롤백하지 않고

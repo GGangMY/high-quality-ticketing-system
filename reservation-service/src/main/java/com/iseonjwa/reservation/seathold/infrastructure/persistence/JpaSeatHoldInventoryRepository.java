@@ -39,6 +39,18 @@ public class JpaSeatHoldInventoryRepository implements SeatHoldInventoryReposito
                 .getResultList();
     }
 
+    // Note: 지운 회차 조건을 직접 적는다. Schedule의 @SQLRestriction이 연관 JOIN FETCH에도 붙는지에 기대지 않는다
+    @Override
+    public List<ScheduleSeat> findSeatsWithSchedule(Long scheduleId, List<Long> seatIds) {
+        return em.createQuery("""
+                        SELECT s FROM ScheduleSeat s JOIN FETCH s.schedule sc
+                         WHERE sc.id = :scheduleId AND sc.deletedAt IS NULL AND s.id IN :ids
+                        """, ScheduleSeat.class)
+                .setParameter("scheduleId", scheduleId)
+                .setParameter("ids", seatIds)
+                .getResultList();
+    }
+
     // set_config(..., true)는 SET LOCAL과 같다. 트랜잭션이 끝나면 원래 값으로 돌아가 커넥션 풀의 다른 요청에 남지 않는다
     @Override
     public void applyLockTimeout(Duration timeout) {

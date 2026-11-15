@@ -68,23 +68,25 @@ public class AsyncSeatHoldService {
     }
 
     private UUID acceptOnce(HoldSeatsCommand command, List<Long> seatIds) {
-        var previous = seatHoldRequests.findById(command.requestId());
-        if (previous.isPresent()) {
-            SeatHoldRules.requireSameRequest(previous.get(), command, seatIds);
-            return previous.get().getRequestId();
+        // 멱등키 조회와 토큰 사용 조회를 한 문장으로 읽는다. 판정 순서(멱등키 → 토큰)는 그대로다
+        var keyState = seatHoldRequests.findKeyState(command.requestId(), command.entryTokenJti());
+        if (keyState.requestExists()) {
+            var previous = seatHoldRequests.findById(command.requestId())
+                    .orElseThrow(() -> new IllegalStateException("선점 요청 행이 사라졌습니다: " + command.requestId()));
+            SeatHoldRules.requireSameRequest(previous, command, seatIds);
+            return previous.getRequestId();
         }
         // Note: 앞선 요청이 아직 처리 중(REQUESTED)이어도 거절한다. 같은 토큰으로 여러 요청을 줄에 넣어 두는 것을 막는다.
         // 앞선 요청이 소비자에서 거절(REJECTED)되면 토큰은 다시 쓸 수 있다. 대기열 issued 정리는 HELD를 커밋한 소비자가 한다(ISE-17)
-        SeatHoldRules.requireUnusedEntryToken(seatHoldRequests, command);
-        var schedule = inventory.findSchedule(command.scheduleId())
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+        if (keyState.tokenActive()) {
+            throw new BusinessException(SeatHoldErrorCode.ENTRY_TOKEN_USED);
+        }
+        var seats = SeatHoldRules.loadSeatsWithSchedule(inventory, command.scheduleId(), seatIds);
+        var schedule = SeatHoldRules.scheduleOf(inventory, command.scheduleId(), seats);
         SeatHoldRules.requireWithinPerUserLimit(schedule, seatIds);
         var now = clock.instant();
         SeatHoldRules.requireOnSale(schedule, now);
-        var seats = inventory.findSeats(schedule.getId(), seatIds);
-        if (seats.size() != seatIds.size()) {
-            throw new BusinessException(SeatHoldErrorCode.SEAT_COUNT_MISMATCH);
-        }
+        SeatHoldRules.requireAllSeatsOfSchedule(seats, seatIds);
         if (!SeatHoldRules.allHoldable(seats)) {
             throw new BusinessException(SeatHoldErrorCode.SEAT_ALREADY_HELD);
         }
