@@ -1,5 +1,7 @@
 package com.iseonjwa.reservation.seathold.concurrency;
 
+import com.iseonjwa.reservation.queue.application.QueueService;
+import com.iseonjwa.reservation.seathold.application.ConsumedEntryTokens;
 import com.iseonjwa.reservation.seathold.application.HoldSeatsCommand;
 import com.iseonjwa.reservation.seathold.application.SeatHoldExpiryService;
 import com.iseonjwa.reservation.seathold.application.SyncSeatHoldService;
@@ -15,6 +17,9 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -77,12 +82,41 @@ class SeatHoldLoadTest {
     private static final String SEAT_LOCK = "seathold.seat_lock";
     private static final String LIMIT_WAIT = "seathold.concurrency.wait";
     private static final String LIMIT_IN_USE = "seathold.concurrency.in_use";
-    private static final List<String> TRACKED_TIMERS = List.of(CONNECTION_USAGE, SEAT_LOCK, LIMIT_WAIT);
+    private static final List<String> TRACKED_TIMERS = List.of(CONNECTION_USAGE, SEAT_LOCK, LIMIT_WAIT,
+            "seathold.concurrency.held", "hikaricp.connections.acquire");
+    // 탐침 대상. seats(기본)는 좌석 조회로, 1초 캐시라 커넥션을 회차당 초당 1번만 쓴다. requests는 접수 결과 조회에
+    // 없는 요청 ID를 보내 읽기 트랜잭션 1번(커넥션 1번)을 쓰고 404를 받는다. 커넥션 보호를 보려면 requests를 쓴다
+    private static final boolean PROBE_REQUESTS = "requests".equals(
+            System.getenv().getOrDefault("SEATHOLD_LOAD_PROBE_TARGET", "seats"));
     // 소비자 재시도 모사(열린 모델). 프론트 seatHold.ts처럼 503·429·504·응답 없음은 같은 사용자·같은 멱등키로
     // 최대 4번 보낸다. 간격은 queryRetryDelay와 같다(1초 × 2^n, 최대 8초, +0~20%)
     private static final boolean CLIENT_RETRY = Boolean.parseBoolean(
             System.getenv().getOrDefault("SEATHOLD_LOAD_CLIENT_RETRY", "false"));
     private static final int CLIENT_MAX_ATTEMPTS = 4;
+    // 배포 경로처럼 Gateway가 넣는 입장 토큰 ID(X-Entry-Token-Id)를 붙인다. 의도마다 새 jti, 재시도는 같은 jti다.
+    // 붙이면 서버가 토큰 사용 여부를 한 번 더 읽고, 선점 뒤 대기열 Redis에서 그 토큰을 지운다
+    private static final boolean ENTRY_TOKEN = Boolean.parseBoolean(
+            System.getenv().getOrDefault("SEATHOLD_LOAD_ENTRY_TOKEN", "false"));
+    // 대기열 정리(Redis 호출)에 더하는 지연. 배포의 Redis 왕복·지연을 흉내 낸다(로컬 Redis는 아주 빠르다)
+    private static final long DISCARD_DELAY_MICROS = Long.parseLong(
+            System.getenv().getOrDefault("SEATHOLD_LOAD_DISCARD_DELAY_US", "0"));
+
+    @TestConfiguration
+    static class DelayedEntryTokenCleanup {
+        @Bean
+        @Primary
+        ConsumedEntryTokens delayedConsumedEntryTokens(QueueService queue) {
+            return new ConsumedEntryTokens(queue) {
+                @Override
+                public void discard(long scheduleId, long userId, String entryTokenJti) {
+                    if (DISCARD_DELAY_MICROS > 0 && entryTokenJti != null) {
+                        java.util.concurrent.locks.LockSupport.parkNanos(DISCARD_DELAY_MICROS * 1_000);
+                    }
+                    super.discard(scheduleId, userId, entryTokenJti);
+                }
+            };
+        }
+    }
     private static final int PROBE_RATE = Integer.parseInt(
             System.getenv().getOrDefault("SEATHOLD_LOAD_PROBE_RATE", "0"));
     // 503을 받은 사용자가 다시 누르기까지의 시간. 0이면 바로 다시 보낸다. 쉬지 않으면 503 폭주가 같은 JVM의 CPU를 먹어
@@ -544,8 +578,9 @@ class SeatHoldLoadTest {
     }
 
     private Sample probe(Long scheduleId) {
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/schedules/" + scheduleId
-                        + "/seats"))
+        var path = PROBE_REQUESTS ? "/api/v1/reservations/requests/" + UUID.randomUUID()
+                : "/api/v1/schedules/" + scheduleId + "/seats";
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .timeout(REQUEST_TIMEOUT)
                 .header("X-User-Id", "1")
                 .header("X-User-Role", "USER")
@@ -554,7 +589,9 @@ class SeatHoldLoadTest {
         var start = System.nanoTime();
         try {
             var response = http.send(request, HttpResponse.BodyHandlers.discarding());
-            return new Sample(String.valueOf(response.statusCode()), start, System.nanoTime());
+            // 접수 결과 조회 탐침은 없는 요청 ID라 404가 정상 응답이다
+            var status = PROBE_REQUESTS && response.statusCode() == 404 ? 200 : response.statusCode();
+            return new Sample(String.valueOf(status), start, System.nanoTime());
         } catch (HttpTimeoutException timeout) {
             return new Sample("TIMEOUT", start, System.nanoTime());
         } catch (Exception exception) {
@@ -567,11 +604,12 @@ class SeatHoldLoadTest {
             throws InterruptedException {
         var userId = userSequence.incrementAndGet();
         var key = UUID.randomUUID().toString();
+        var jti = ENTRY_TOKEN ? UUID.randomUUID().toString() : null;
         var start = System.nanoTime();
         Sample last = null;
         var attempts = 0;
         while (attempts < CLIENT_MAX_ATTEMPTS) {
-            last = send(scheduleId, seatIds, userId, key);
+            last = send(scheduleId, seatIds, userId, key, jti);
             samples.add(last);
             attempts++;
             if (!clientRetryable(last.status()) || attempts >= CLIENT_MAX_ATTEMPTS) {
@@ -589,20 +627,24 @@ class SeatHoldLoadTest {
     }
 
     private Sample send(Long scheduleId, List<Long> seatIds) {
-        return send(scheduleId, seatIds, userSequence.incrementAndGet(), UUID.randomUUID().toString());
+        return send(scheduleId, seatIds, userSequence.incrementAndGet(), UUID.randomUUID().toString(),
+                ENTRY_TOKEN ? UUID.randomUUID().toString() : null);
     }
 
-    private Sample send(Long scheduleId, List<Long> seatIds, long userId, String idempotencyKey) {
+    private Sample send(Long scheduleId, List<Long> seatIds, long userId, String idempotencyKey, String jti) {
         var body = "{\"seatIds\":" + seatIds + "}";
-        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/schedules/" + scheduleId
+        var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/schedules/" + scheduleId
                         + "/reservations"))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Content-Type", "application/json")
                 .header("X-User-Id", String.valueOf(userId))
                 .header("X-User-Role", "USER")
                 .header("Idempotency-Key", idempotencyKey)
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (jti != null) {
+            builder.header("X-Entry-Token-Id", jti);
+        }
+        var request = builder.build();
         var start = System.nanoTime();
         try {
             var response = http.send(request, HttpResponse.BodyHandlers.ofString());

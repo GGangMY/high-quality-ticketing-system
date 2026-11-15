@@ -78,7 +78,8 @@ public class SeatHoldController {
         if (mode == SeatHoldMode.ASYNC) {
             return accepted(concurrencyLimit.run(() -> asyncService.accept(command)));
         }
-        return switch (concurrencyLimit.run(() -> syncService.hold(command))) {
+        // 동기형은 자리를 트랜잭션 단계에서만 쥐고, 커밋 뒤 정리·서명은 자리를 돌려준 뒤에 한다(SyncSeatHoldService)
+        return switch (syncService.hold(command, concurrencyLimit::run)) {
             case SyncHoldOutcome.Held held -> ResponseEntity.status(201).body(
                     SuccessResponse.of(201, "선점되었습니다", HoldResponse.from(held.result()), MDC.get("traceId")));
             // 접수형으로 시작한 요청은 동기형 서버에서도 202로 답한다(ADR 0058)

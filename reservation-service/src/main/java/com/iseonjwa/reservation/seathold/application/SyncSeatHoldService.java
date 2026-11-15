@@ -72,6 +72,25 @@ public class SyncSeatHoldService {
      * 입장 토큰의 대기열 정리도 트랜잭션이 끝나 커넥션을 돌려준 뒤에 한다(ADR 0053, {@link ConsumedEntryTokens}).
      */
     public SyncHoldOutcome hold(HoldSeatsCommand command) {
+        return hold(command, SeatHoldGate.OPEN);
+    }
+
+    /**
+     * Note: 동시 처리 상한(gate)의 자리는 커넥션을 쓰는 트랜잭션 단계(decide)에서만 쥔다. 커밋 뒤의 일(입장 토큰
+     * 대기열 정리 = Redis, 결제 토큰 서명 = CPU)은 커넥션을 쓰지 않으므로 자리를 돌려준 뒤에 한다. 자리 점유 시간이
+     * 줄면 같은 자리 수로 더 많이 처리한다(seathold-perf-loop.md 반복 2). 대가로 Redis가 느리면 그 지연만큼
+     * 자리 밖에서 Tomcat 스레드를 쥔다(대기열 Redis 차단기가 막는다). DB를 다시 읽는 재응답과 예외 경로의 정리는
+     * decide 안에 남는다
+     */
+    public SyncHoldOutcome hold(HoldSeatsCommand command, SeatHoldGate gate) {
+        var decision = gate.run(() -> decide(command));
+        if (!(decision instanceof Decision.Accepted)) {
+            discardEntryToken(command);
+        }
+        return respond(decision);
+    }
+
+    private Decision decide(HoldSeatsCommand command) {
         var seatIds = SeatHoldRules.sortedDistinctSeatIds(command.seatIds());
         Decision decision;
         try {
@@ -90,10 +109,7 @@ public class SyncSeatHoldService {
             }
             throw rejected;
         }
-        if (!(decision instanceof Decision.Accepted)) {
-            discardEntryToken(command);
-        }
-        return respond(decision);
+        return decision;
     }
 
     /**

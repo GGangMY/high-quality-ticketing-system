@@ -32,6 +32,7 @@ public class SeatHoldConcurrencyLimit {
     private final Counter rejectedQueueFull;
     private final Counter rejectedWaitTimeout;
     private final Timer waited;
+    private final Timer held;
 
     /**
      * @param maxWaiting 자리를 기다릴 수 있는 요청 수. 차 있으면 기다리지 않고 바로 503이다
@@ -57,6 +58,12 @@ public class SeatHoldConcurrencyLimit {
                 .serviceLevelObjectives(Duration.ofMillis(1), Duration.ofMillis(10), Duration.ofMillis(50),
                         Duration.ofMillis(100), Duration.ofMillis(200))
                 .register(meterRegistry);
+        // 자리 점유 시간. 처리 한계는 대략 자리 수 ÷ 이 시간이다(커넥션 사용 시간보다 길다)
+        this.held = Timer.builder("seathold.concurrency.held")
+                .description("선점 동시 처리 상한의 자리를 쥔 시간")
+                .serviceLevelObjectives(Duration.ofMillis(1), Duration.ofMillis(5), Duration.ofMillis(10),
+                        Duration.ofMillis(50), Duration.ofMillis(100))
+                .register(meterRegistry);
         if (permits != null) {
             Gauge.builder("seathold.concurrency.in_use", permits, held -> maxConcurrent - held.availablePermits())
                     .description("선점 동시 처리 상한에서 지금 쓰고 있는 자리 수")
@@ -73,10 +80,12 @@ public class SeatHoldConcurrencyLimit {
         if (!acquire()) {
             throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE);
         }
+        var started = System.nanoTime();
         try {
             return hold.get();
         } finally {
             permits.release();
+            held.record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
         }
     }
 
