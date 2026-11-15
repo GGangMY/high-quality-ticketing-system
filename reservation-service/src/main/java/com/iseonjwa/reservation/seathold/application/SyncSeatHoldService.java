@@ -156,24 +156,28 @@ public class SyncSeatHoldService {
 
     private Decision holdInTransaction(HoldSeatsCommand command, List<Long> seatIds) {
         // 같은 멱등키 재요청은 첫 결과로 답하고, 다른 요청이 이 토큰을 썼으면 좌석을 잠그기 전에 거절한다(ADR 0053 결정 2).
-        // Note: 두 조회를 한 문장으로 읽는다. 판정 순서(멱등키 → 토큰)는 그대로다(contracts.md 1절 검사 순서)
-        var keyState = seatHoldRequests.findKeyState(command.requestId(), command.entryTokenJti());
-        if (keyState.requestExists()) {
+        // Note: 판정 재료를 한 문장으로 읽는다. 판정 순서는 그대로다(contracts.md 1절 검사 순서)
+        var check = SeatHoldRules.precheck(inventory, seatHoldRequests, command.scheduleId(), seatIds,
+                command.requestId(), command.entryTokenJti());
+        if (check.requestExists()) {
             var previous = seatHoldRequests.findById(command.requestId())
                     .orElseThrow(() -> new IllegalStateException("선점 요청 행이 사라졌습니다: " + command.requestId()));
             return replay(previous, command, seatIds);
         }
-        if (keyState.tokenActive()) {
+        if (check.tokenActive()) {
             throw new BusinessException(SeatHoldErrorCode.ENTRY_TOKEN_USED);
         }
-        var seats = SeatHoldRules.loadSeatsWithSchedule(inventory, command.scheduleId(), seatIds);
+        var seats = check.seats();
         var schedule = SeatHoldRules.scheduleOf(inventory, command.scheduleId(), seats);
         SeatHoldRules.requireWithinPerUserLimit(schedule, seatIds);
         var now = clock.instant();
         SeatHoldRules.requireOnSale(schedule, now);
         SeatHoldRules.requireAllSeatsOfSchedule(seats, seatIds);
+        // 이미 잡힌 좌석이 섞이면 멱등키·매수·좌석을 건드리지 않고 409로 끝낸다(ADR 0060).
+        // Note: 멱등키를 다시 읽지 않는다. 판정 재료가 한 시점의 데이터라, 같은 키 첫 요청이 커밋된 뒤라면 위에서 멱등키 행이
+        // 보여 재응답했고, 커밋 전이라면 그 요청의 좌석도 아직 비어 보여 여기 오지 않는다(쓰기에서 PK 충돌 → 재응답, TS-3)
         if (!SeatHoldRules.allHoldable(seats)) {
-            return rejectHeldSeats(command, seatIds);
+            throw new BusinessException(SeatHoldErrorCode.SEAT_ALREADY_HELD);
         }
 
         claimRequest(command, schedule.getId(), seatIds);
@@ -231,15 +235,6 @@ public class SyncSeatHoldService {
             return new Decision.Payable(reservation, seatIds);
         }
         throw new BusinessException(SeatHoldErrorCode.RESERVATION_NOT_PAYABLE);
-    }
-
-    // 이미 잡힌 좌석이 섞인 요청은 멱등키·매수·좌석을 건드리지 않고 409로 끝낸다. 좌석을 잠그지 않으므로 같은 빈 좌석을 노린
-    // 다른 요청이 이 요청의 롤백을 기다리지 않는다(ADR 0060).
-    // Note: 같은 키의 첫 요청이 앞의 멱등키 조회 뒤에 커밋되면 자기 좌석이 잡혀 보인다. 409 전에 키를 한 번 더 읽어 재응답한다
-    private Decision rejectHeldSeats(HoldSeatsCommand command, List<Long> seatIds) {
-        return seatHoldRequests.findById(command.requestId())
-                .map(previous -> replay(previous, command, seatIds))
-                .orElseThrow(() -> new BusinessException(SeatHoldErrorCode.SEAT_ALREADY_HELD));
     }
 
 }

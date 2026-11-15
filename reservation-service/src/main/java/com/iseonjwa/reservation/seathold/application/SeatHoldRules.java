@@ -11,6 +11,7 @@ import com.iseonjwa.reservation.seathold.domain.repository.SeatHoldRequestReposi
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 동기형·접수형 선점이 같이 쓰는 입력 검증과 멱등 판정(contracts.md 1·3절). 두 모드가 같은 요청을 같은 기준으로 받아야
@@ -44,6 +45,19 @@ final class SeatHoldRules {
     // 여기서 잡혀 보인 좌석은 커밋된 선점이라 UPDATE까지 가도 409다. 오픈 피크 요청 대부분이 이 경우라 먼저 거른다(ADR 0057, 0060)
     static boolean allHoldable(List<ScheduleSeat> seats) {
         return seats.stream().allMatch(ScheduleSeat::isHoldable);
+    }
+
+    // 사전 판정 재료를 한 문장으로 읽는다. 좌석이 하나도 없을 때(없는 회차·모두 다른 회차의 좌석, 드묾)만 멱등키·토큰을
+    // 따로 읽는다. 판정 순서(멱등키 → 토큰 → 회차 → 매수 한도 → 판매 기간 → 좌석 수 → 먼저 거절)는 호출한 쪽이 지킨다
+    static SeatHoldInventoryRepository.HoldPrecheck precheck(SeatHoldInventoryRepository inventory,
+            SeatHoldRequestRepository requests, Long scheduleId, List<Long> seatIds, UUID requestId,
+            String entryTokenJti) {
+        var found = inventory.precheck(scheduleId, seatIds, requestId, entryTokenJti);
+        if (!found.seats().isEmpty()) {
+            return found;
+        }
+        var keyState = requests.findKeyState(requestId, entryTokenJti);
+        return new SeatHoldInventoryRepository.HoldPrecheck(List.of(), keyState.requestExists(), keyState.tokenActive());
     }
 
     // 회차와 좌석을 한 번에 읽는다. 검사 순서(회차 없음 → 매수 한도 → 판매 기간 → 좌석 수)는 호출한 쪽이 지금처럼 지킨다

@@ -10,8 +10,10 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 // concert 모듈에 Spring Data 저장소를 만들지 않으려고 EntityManager로 직접 조회한다
 @Repository
@@ -49,6 +51,38 @@ public class JpaSeatHoldInventoryRepository implements SeatHoldInventoryReposito
                 .setParameter("scheduleId", scheduleId)
                 .setParameter("ids", seatIds)
                 .getResultList();
+    }
+
+    // Note: 선택절 하위 쿼리로 멱등키 행 수와 활성 토큰 행 수를 좌석과 같은 문장에서 읽는다. 같은 시점의 데이터라
+    // "멱등키는 아직 안 보이는데 그 요청이 잡은 좌석만 보이는" 일이 없다(동기형은 둘을 한 트랜잭션에 커밋하고,
+    // 접수형은 멱등키를 먼저 커밋한다). jti가 null이면 비교가 참이 되지 않아 토큰 수는 0이다.
+    // Note: 거절 상태는 파라미터가 아니라 리터럴로 쓴다. 부분 유니크 인덱스(status <> 'REJECTED')는 조건이 리터럴이어야
+    // 계획기가 쓸 수 있다고 증명한다. 파라미터면 서버 쪽 일반 계획에서 인덱스를 못 써 순차 스캔이 될 수 있다
+    @Override
+    public HoldPrecheck precheck(Long scheduleId, List<Long> seatIds, UUID requestId, String entryTokenJti) {
+        List<Object[]> rows = em.createQuery("""
+                        SELECT s,
+                               (SELECT count(r) FROM SeatHoldRequest r WHERE r.requestId = :requestId),
+                               (SELECT count(t) FROM SeatHoldRequest t
+                                 WHERE t.entryTokenJti = :jti
+                                   AND t.status <> com.iseonjwa.reservation.seathold.domain.entity.SeatHoldRequestStatus.REJECTED)
+                          FROM ScheduleSeat s JOIN FETCH s.schedule sc
+                         WHERE sc.id = :scheduleId AND sc.deletedAt IS NULL AND s.id IN :ids
+                        """, Object[].class)
+                .setParameter("requestId", requestId)
+                .setParameter("jti", entryTokenJti)
+                .setParameter("scheduleId", scheduleId)
+                .setParameter("ids", seatIds)
+                .getResultList();
+        if (rows.isEmpty()) {
+            return new HoldPrecheck(List.of(), false, false);
+        }
+        var seats = new ArrayList<ScheduleSeat>(rows.size());
+        for (var row : rows) {
+            seats.add((ScheduleSeat) row[0]);
+        }
+        var first = rows.getFirst();
+        return new HoldPrecheck(seats, ((Number) first[1]).longValue() > 0, ((Number) first[2]).longValue() > 0);
     }
 
     // set_config(..., true)는 SET LOCAL과 같다. 트랜잭션이 끝나면 원래 값으로 돌아가 커넥션 풀의 다른 요청에 남지 않는다
