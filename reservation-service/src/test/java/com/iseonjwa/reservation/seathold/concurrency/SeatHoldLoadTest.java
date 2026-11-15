@@ -1,6 +1,12 @@
 package com.iseonjwa.reservation.seathold.concurrency;
 
+import com.iseonjwa.reservation.seathold.application.HoldSeatsCommand;
+import com.iseonjwa.reservation.seathold.application.SeatHoldExpiryService;
+import com.iseonjwa.reservation.seathold.application.SyncSeatHoldService;
+import com.iseonjwa.reservation.seathold.presentation.scheduling.SeatHoldExpiryScheduler;
 import com.zaxxer.hikari.HikariDataSource;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -28,9 +34,11 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,7 +47,8 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * 좌석 선점 부하 시나리오 L1·L2·L3·L6의 로컬 근사(docs/design/reservation/load-test-scenarios.md 3절).
+ * 좌석 선점 부하 시나리오 L1·L2·L3·L6의 로컬 근사(docs/design/reservation/load-test-scenarios.md 3절)와,
+ * 선점 구조 개선(ADR 0060)을 재는 L7·L8·L9(docs/design/reservation/seathold-structure-improvements.md 4절).
  *
  * <p>실제 Tomcat·Hikari·PostgreSQL에 HTTP로 부하를 준다. Gateway·인증·다른 기기의 부하 도구가 없고 부하 생성기와 대상이
  * 같은 JVM이라 SA 3-1의 공식 측정을 대신하지 않는다. 같은 장비에서 단계(S0~S4)와 커넥션 풀 크기의 전후를 비교하는 용도다.
@@ -52,12 +61,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"spring.config.import=", "spring.cloud.config.enabled=false", "eureka.client.enabled=false",
                 "spring.datasource.hikari.maximum-pool-size=${SEATHOLD_LOAD_POOL:5}",
-                "spring.datasource.hikari.connection-timeout=3000"})
+                "spring.datasource.hikari.connection-timeout=${SEATHOLD_LOAD_CONNECTION_TIMEOUT:3000}",
+                "seat-hold.max-concurrent=${SEATHOLD_LOAD_MAX_CONCURRENT:0}"})
 @ActiveProfiles("test")
 class SeatHoldLoadTest {
     // Gateway 전체 타임아웃(SA 9-4)과 같게 둔다. 넘으면 타임아웃 오류로 센다
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration SAMPLE_INTERVAL = Duration.ofMillis(50);
+    // 닫힌 모델 탐침 VU 수(L7·L8). SEATHOLD_LOAD_PROBE_RATE를 주면 대신 초당 그만큼 보내는 열린 모델 탐침을 쓴다(L9)
+    private static final int PROBE_VUS = 20;
+    // 시나리오 전후 차이를 보는 서버 지표. 아직 없는 지표(도입 전)는 건너뛴다
+    private static final String CONNECTION_USAGE = "hikaricp.connections.usage";
+    private static final String SEAT_LOCK = "seathold.seat_lock";
+    private static final String LIMIT_WAIT = "seathold.concurrency.wait";
+    private static final String LIMIT_IN_USE = "seathold.concurrency.in_use";
+    private static final List<String> TRACKED_TIMERS = List.of(CONNECTION_USAGE, SEAT_LOCK, LIMIT_WAIT);
+    private static final int PROBE_RATE = Integer.parseInt(
+            System.getenv().getOrDefault("SEATHOLD_LOAD_PROBE_RATE", "0"));
+    // 503을 받은 사용자가 다시 누르기까지의 시간. 0이면 바로 다시 보낸다. 쉬지 않으면 503 폭주가 같은 JVM의 CPU를 먹어
+    // 서버 처리량까지 낮추므로, 동시 처리 상한을 켠 측정은 이 값을 둔다(ADR 0060)
+    private static final Duration OVERLOAD_BACKOFF = Duration.ofMillis(
+            Long.parseLong(System.getenv().getOrDefault("SEATHOLD_LOAD_503_BACKOFF_MS", "0")));
 
     @LocalServerPort
     int port;
@@ -65,6 +89,12 @@ class SeatHoldLoadTest {
     JdbcTemplate jdbc;
     @Autowired
     DataSource dataSource;
+    @Autowired
+    MeterRegistry meterRegistry;
+    @Autowired
+    SyncSeatHoldService syncService;
+    @Autowired
+    SeatHoldExpiryService expiryService;
     @Value("${spring.datasource.url}")
     String dbUrl;
     @Value("${spring.datasource.username}")
@@ -73,6 +103,8 @@ class SeatHoldLoadTest {
     String dbPassword;
 
     private final AtomicLong userSequence = new AtomicLong(800_000_000L);
+    // 사용자가 201로 받은 좌석 수. 잡힌 좌석 수에서 빼면 타임아웃 뒤 서버가 잡은 좌석(유령 선점)이 나온다
+    private final AtomicInteger acknowledgedSeats = new AtomicInteger();
     private HttpClient http;
     private SeatHoldFixture fixture;
 
@@ -93,10 +125,14 @@ class SeatHoldLoadTest {
     // L1(SA 3장 정의): VU 100이 1초 안에 시작해 각 10회. 좌석 15,000석에서 서로 다른 무작위 좌석 1~2개
     @Test
     void L1_기준선() throws Exception {
-        var scheduleId = fixture.createOnSaleSchedule();
-        var seats = fixture.createSeatsInBulk(scheduleId, 15_000);
-        var result = run(scheduleId, 100, Duration.ofSeconds(1), 10, null, randomSeats(seats));
-        report("L1", result, scheduleId, Map.of("vus", 100));
+        // VU마다 보내는 횟수. 기본 10은 SA 3장 정의다. 성공 경로를 길게 재려면 SEATHOLD_LOAD_L1_ITERATIONS로 늘린다
+        var iterations = Integer.parseInt(System.getenv().getOrDefault("SEATHOLD_LOAD_L1_ITERATIONS", "10"));
+        for (var round = 0; round < repeat(); round++) {
+            var scheduleId = fixture.createOnSaleSchedule();
+            var seats = fixture.createSeatsInBulk(scheduleId, 15_000);
+            var result = run(scheduleId, 100, Duration.ofSeconds(1), iterations, null, randomSeats(seats));
+            report("L1", result, scheduleId, Map.of("vus", 100, "iterations", iterations, "round", round + 1));
+        }
     }
 
     // L2(Synthetic 쏠림): VU 200, 30초. 요청의 80%가 좌석 1,000석 중 앞 5%(50석)에 몰린다
@@ -138,6 +174,192 @@ class SeatHoldLoadTest {
         assertEquals(10L, result.countByStatus().getOrDefault("201", 0L));
     }
 
+    // L7(여러 좌석 쏠림, 선점 구조 개선 측정): 좌석 1,000석. 요청의 80%가 앞 100석(인기 구역)에서 이웃한 좌석 1~4개를 고른다.
+    // 인기 구역이 금방 잡혀, 이미 잡힌 좌석이 섞인 여러 좌석 요청이 대부분인 오픈 직후를 흉내 낸다.
+    // 좌석 조회 탐침(다른 회차)을 함께 돌려 선점 부하가 다른 API로 번지는지 본다. 반복은 SEATHOLD_LOAD_REPEAT로 정한다
+    @Test
+    void L7_여러_좌석_쏠림() throws Exception {
+        var vus = Integer.parseInt(System.getenv().getOrDefault("SEATHOLD_LOAD_L7_VUS", "200"));
+        for (var round = 0; round < repeat(); round++) {
+            var scheduleId = fixture.createOnSaleSchedule();
+            var seats = fixture.createSeatsInBulk(scheduleId, 1_000);
+            var probeScheduleId = probeSchedule();
+            var result = run(scheduleId, vus, Duration.ofSeconds(1), 0, Duration.ofSeconds(20),
+                    neighborSeats(seats, 100), probeScheduleId, null, null);
+            report("L7", result, scheduleId, Map.of("vus", vus, "round", round + 1));
+        }
+    }
+
+    // L8(잠금 장애 중 번짐): L7과 같은 요청에 VU를 늘리고, 인기 구역 20석을 측정 내내 잠근 느린 트랜잭션을 둔다(측정 브랜치 Z와 같은 상황).
+    // 잠긴 좌석을 노린 요청이 lock_timeout까지 커넥션을 쥐므로, 상관없는 좌석 조회가 얼마나 버티는지가 핵심 지표다
+    @Test
+    void L8_잠금_장애_번짐() throws Exception {
+        var vus = Integer.parseInt(System.getenv().getOrDefault("SEATHOLD_LOAD_L8_VUS", "400"));
+        for (var round = 0; round < repeat(); round++) {
+            var scheduleId = fixture.createOnSaleSchedule();
+            var seats = fixture.createSeatsInBulk(scheduleId, 1_000);
+            var probeScheduleId = probeSchedule();
+            var result = run(scheduleId, vus, Duration.ofSeconds(1), 0, Duration.ofSeconds(20),
+                    neighborSeats(seats, 100), probeScheduleId, seats.subList(0, 20), null);
+            report("L8", result, scheduleId, Map.of("vus", vus, "round", round + 1));
+        }
+    }
+
+    // L9(열린 모델, 동시 처리 상한 측정): L8과 같은 좌석·잠금 장애에서 VU 대신 초당 도착 수를 고정한다(k6 constant-arrival-rate).
+    // 닫힌 모델은 503을 받은 VU가 바로 다시 보내거나(폭주) 쉬어서(부하 감소) 상한 전후의 부하가 같지 않다.
+    // 도착률은 SEATHOLD_LOAD_RATES(기본 300,600)로 정한다. 300은 처리 가능한 양 아래, 600은 위다
+    @Test
+    void L9_일정_도착률_잠금_장애() throws Exception {
+        var rates = System.getenv().getOrDefault("SEATHOLD_LOAD_RATES", "300,600");
+        for (var rate : rates.split(",")) {
+            for (var round = 0; round < repeat(); round++) {
+                var scheduleId = fixture.createOnSaleSchedule();
+                var seats = fixture.createSeatsInBulk(scheduleId, 1_000);
+                var probeScheduleId = probeSchedule();
+                var arrivalRate = Integer.parseInt(rate.trim());
+                // SEATHOLD_LOAD_L9_LOCKED=false면 잠금 장애 없이 같은 도착률만 준다(정상 오픈 피크에서 상한의 503을 본다)
+                var locked = Boolean.parseBoolean(System.getenv().getOrDefault("SEATHOLD_LOAD_L9_LOCKED", "true"));
+                var result = run(scheduleId, 0, Duration.ZERO, 0, Duration.ofSeconds(20), neighborSeats(seats, 100),
+                        probeScheduleId, locked ? seats.subList(0, 20) : null, arrivalRate);
+                report("L9", result, scheduleId, Map.of("rate", arrivalRate, "round", round + 1, "locked", locked));
+            }
+        }
+    }
+
+    // L10(만료 회수): 결제하지 않은 선점 N건의 기한을 지나게 한 뒤, 만료 스케줄러를 운영과 같은 fixedDelay로 돌려 모두 회수하는
+    // 시간을 잰다. 회수하는 동안 다른 회차에 L7과 같은 선점 부하를 줘서, 만료 주기가 선점과 좌석 조회에 주는 영향도 본다.
+    // 주기는 SEATHOLD_LOAD_EXPIRY_INTERVALS(밀리초, 기본 5000,1000), 건수는 SEATHOLD_LOAD_EXPIRY_TARGETS(기본 3000)로 정한다
+    @Test
+    void L10_만료_회수() throws Exception {
+        var intervals = System.getenv().getOrDefault("SEATHOLD_LOAD_EXPIRY_INTERVALS", "5000,1000");
+        var targets = Integer.parseInt(System.getenv().getOrDefault("SEATHOLD_LOAD_EXPIRY_TARGETS", "3000"));
+        for (var intervalText : intervals.split(",")) {
+            for (var round = 0; round < repeat(); round++) {
+                var interval = Duration.ofMillis(Long.parseLong(intervalText.trim()));
+                var expiringScheduleId = fixture.createOnSaleSchedule();
+                var expiringSeats = fixture.createSeatsInBulk(expiringScheduleId, targets);
+                holdAll(expiringScheduleId, expiringSeats);
+                fixture.passHoldExpiry(expiringScheduleId);
+
+                var loadScheduleId = fixture.createOnSaleSchedule();
+                var loadSeats = fixture.createSeatsInBulk(loadScheduleId, 1_000);
+                var drainSeconds = new AtomicReference<Double>();
+                var scheduler = new SeatHoldExpiryScheduler(expiryService, 100);
+                var timer = Executors.newSingleThreadScheduledExecutor();
+                var started = System.nanoTime();
+                timer.scheduleWithFixedDelay(scheduler::expireDueHolds, interval.toMillis(), interval.toMillis(),
+                        TimeUnit.MILLISECONDS);
+                var watcher = Thread.ofPlatform().start(() -> {
+                    while (heldReservations(expiringScheduleId) > 0
+                            && System.nanoTime() - started < TimeUnit.SECONDS.toNanos(400)) {
+                        sleepQuietly(Duration.ofMillis(100));
+                    }
+                    drainSeconds.set((System.nanoTime() - started) / 1e9);
+                });
+                var result = run(loadScheduleId, 50, Duration.ofSeconds(1), 0, Duration.ofSeconds(20),
+                        neighborSeats(loadSeats, 100), probeSchedule(), null, null);
+                watcher.join();
+                timer.shutdownNow();
+                var left = heldReservations(expiringScheduleId);
+                report("L10", result, loadScheduleId, Map.of("intervalMs", interval.toMillis(), "targets", targets,
+                        "round", round + 1, "drainSeconds", Math.round(drainSeconds.get() * 10) / 10.0,
+                        "releasedPerSecond", Math.round((targets - left) / drainSeconds.get()), "left", left));
+            }
+        }
+    }
+
+    // 서로 다른 사용자가 1석씩 잡는다. 회수 측정 전에 만드는 데이터라 서비스를 직접 부른다
+    private void holdAll(Long scheduleId, List<Long> seats) {
+        try (var executor = Executors.newFixedThreadPool(4)) {
+            for (var seat : seats) {
+                var userId = userSequence.incrementAndGet();
+                executor.submit(() -> syncService.hold(new HoldSeatsCommand(userId, UUID.randomUUID(), scheduleId,
+                        List.of(seat), null)));
+            }
+        }
+    }
+
+    private int heldReservations(Long scheduleId) {
+        return jdbc.queryForObject("SELECT count(*) FROM reservations WHERE schedule_id = ? AND status = 'HELD'",
+                Integer.class, scheduleId);
+    }
+
+    private static void sleepQuietly(Duration duration) {
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // 타이머 누적값(건수, 합계, 버킷별 건수)을 시나리오 시작 때 적어 둔다
+    private Map<String, double[]> timerMarks() {
+        var marks = new LinkedHashMap<String, double[]>();
+        for (var name : TRACKED_TIMERS) {
+            var timer = meterRegistry.find(name).timer();
+            if (timer != null) {
+                marks.put(name, mark(timer));
+            }
+        }
+        return marks;
+    }
+
+    private static double[] mark(Timer timer) {
+        var buckets = timer.takeSnapshot().histogramCounts();
+        var values = new double[2 + buckets.length];
+        values[0] = timer.count();
+        values[1] = timer.totalTime(TimeUnit.MICROSECONDS);
+        for (var i = 0; i < buckets.length; i++) {
+            values[2 + i] = buckets[i].count();
+        }
+        return values;
+    }
+
+    // 시나리오 동안의 건수, 평균, 버킷 이하 비율(누적)을 낸다
+    private Map<String, Object> timerDeltas(Map<String, double[]> before) {
+        var deltas = new LinkedHashMap<String, Object>();
+        for (var name : TRACKED_TIMERS) {
+            var timer = meterRegistry.find(name).timer();
+            if (timer == null) {
+                continue;
+            }
+            var end = mark(timer);
+            var start = before.getOrDefault(name, new double[end.length]);
+            var count = end[0] - start[0];
+            var summary = new LinkedHashMap<String, Object>();
+            summary.put("count", (long) count);
+            summary.put("avgUs", count == 0 ? 0 : Math.round((end[1] - start[1]) / count));
+            var buckets = timer.takeSnapshot().histogramCounts();
+            for (var i = 0; i < buckets.length; i++) {
+                var share = count == 0 ? 0 : Math.round(1000.0 * (end[2 + i] - start[2 + i]) / count) / 10.0;
+                summary.put("le" + (long) buckets[i].bucket(TimeUnit.MILLISECONDS) + "ms%", share);
+            }
+            deltas.put(name, summary);
+        }
+        return deltas;
+    }
+
+    private static int repeat() {
+        return Integer.parseInt(System.getenv().getOrDefault("SEATHOLD_LOAD_REPEAT", "1"));
+    }
+
+    private Long probeSchedule() {
+        var probeScheduleId = fixture.createOnSaleSchedule();
+        fixture.createSeatsInBulk(probeScheduleId, 1_000);
+        return probeScheduleId;
+    }
+
+    // 1석 30%, 2석 50%, 3석·4석 각 10%. 사용자는 붙은 좌석을 고르므로 시작 좌석부터 ID가 이어진 좌석을 잡는다
+    private static Function<ThreadLocalRandom, List<Long>> neighborSeats(List<Long> seats, int hotCount) {
+        return random -> {
+            var roll = random.nextInt(100);
+            var count = roll < 30 ? 1 : roll < 80 ? 2 : roll < 90 ? 3 : 4;
+            var range = random.nextInt(100) < 80 ? hotCount : seats.size();
+            var start = random.nextInt(range - count + 1);
+            return seats.subList(start, start + count);
+        };
+    }
+
     private static Function<ThreadLocalRandom, List<Long>> randomSeats(List<Long> seats) {
         return random -> {
             var first = random.nextInt(seats.size());
@@ -162,7 +384,8 @@ class SeatHoldLoadTest {
         }
     }
 
-    record RunResult(List<Sample> samples, int maxPendingConnections, int maxLockWaiters) {
+    record RunResult(List<Sample> samples, int maxPendingConnections, int maxLockWaiters, List<Sample> probes,
+            int maxLimitInUse, Map<String, Object> meters) {
         Map<String, Long> countByStatus() {
             var counts = new TreeMap<String, Long>();
             for (var sample : samples) {
@@ -178,20 +401,76 @@ class SeatHoldLoadTest {
      */
     private RunResult run(Long scheduleId, int vus, Duration ramp, int iterations, Duration duration,
             Function<ThreadLocalRandom, List<Long>> chooser) throws Exception {
+        return run(scheduleId, vus, ramp, iterations, duration, chooser, null, null, null);
+    }
+
+    /**
+     * probeScheduleId가 있으면 탐침 VU 20개가 측정 동안 그 회차의 좌석 조회를 반복한다(선점과 상관없는 API).
+     * lockedSeats가 있으면 측정 동안 그 좌석들을 FOR UPDATE로 쥔 트랜잭션을 앱 풀 밖의 연결로 둔다.
+     * arrivalRate가 있으면 열린 모델이다. VU 수와 상관없이 초당 그만큼 새 요청을 보내고, 응답이 늦어도 다음 요청을 미루지 않는다.
+     */
+    private RunResult run(Long scheduleId, int vus, Duration ramp, int iterations, Duration duration,
+            Function<ThreadLocalRandom, List<Long>> chooser, Long probeScheduleId, List<Long> lockedSeats,
+            Integer arrivalRate) throws Exception {
+        acknowledgedSeats.set(0);
         var samples = new ConcurrentLinkedQueue<Sample>();
+        var probes = new ConcurrentLinkedQueue<Sample>();
         var running = new AtomicBoolean(true);
         var maxPending = new AtomicInteger();
         var maxLockWaiters = new AtomicInteger();
-        var sampler = Thread.ofPlatform().start(() -> sample(running, maxPending, maxLockWaiters));
+        var maxLimitInUse = new AtomicInteger();
+        var before = timerMarks();
+        var locker = lockedSeats == null ? null : startLocker(lockedSeats, running);
+        var sampler = Thread.ofPlatform().start(() -> sample(running, maxPending, maxLockWaiters, maxLimitInUse));
+        var probeExecutor = Executors.newVirtualThreadPerTaskExecutor();
+        if (probeScheduleId != null && PROBE_RATE > 0) {
+            // 열린 모델 탐침: 초당 PROBE_RATE건을 응답과 상관없이 보낸다. 탐침이 DB 자리를 빼앗아 선점 측정을 흔들지 않는다
+            probeExecutor.submit(() -> {
+                var start = System.nanoTime();
+                for (var i = 0L; running.get(); i++) {
+                    var wait = start + i * 1_000_000_000L / PROBE_RATE - System.nanoTime();
+                    if (wait > 0) {
+                        TimeUnit.NANOSECONDS.sleep(wait);
+                    }
+                    probeExecutor.submit(() -> probes.add(probe(probeScheduleId)));
+                }
+                return null;
+            });
+        } else if (probeScheduleId != null) {
+            for (var probe = 0; probe < PROBE_VUS; probe++) {
+                probeExecutor.submit(() -> {
+                    while (running.get()) {
+                        probes.add(probe(probeScheduleId));
+                    }
+                    return null;
+                });
+            }
+        }
         var deadline = duration == null ? Long.MAX_VALUE : System.nanoTime() + ramp.toNanos() + duration.toNanos();
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            for (var vu = 0; vu < vus; vu++) {
-                var delayNanos = vus == 1 ? 0 : ramp.toNanos() * vu / (vus - 1);
+            if (arrivalRate != null) {
+                var start = System.nanoTime();
+                var total = arrivalRate * duration.toSeconds();
+                for (var i = 0L; i < total; i++) {
+                    var wait = start + i * 1_000_000_000L / arrivalRate - System.nanoTime();
+                    if (wait > 0) {
+                        TimeUnit.NANOSECONDS.sleep(wait);
+                    }
+                    executor.submit(() -> samples.add(send(scheduleId, chooser.apply(ThreadLocalRandom.current()))));
+                }
+            }
+            var closedVus = arrivalRate == null ? vus : 0;
+            for (var vu = 0; vu < closedVus; vu++) {
+                var delayNanos = closedVus == 1 ? 0 : ramp.toNanos() * vu / (closedVus - 1);
                 executor.submit(() -> {
                     TimeUnit.NANOSECONDS.sleep(delayNanos);
                     var random = ThreadLocalRandom.current();
                     for (var i = 0; iterations > 0 ? i < iterations : System.nanoTime() < deadline; i++) {
-                        samples.add(send(scheduleId, chooser.apply(random)));
+                        var sample = send(scheduleId, chooser.apply(random));
+                        samples.add(sample);
+                        if (sample.status().equals("503") && OVERLOAD_BACKOFF.isPositive()) {
+                            Thread.sleep(OVERLOAD_BACKOFF);
+                        }
                     }
                     return null;
                 });
@@ -199,8 +478,58 @@ class SeatHoldLoadTest {
         } finally {
             running.set(false);
             sampler.join();
+            probeExecutor.close();
+            if (locker != null) {
+                locker.join();
+            }
         }
-        return new RunResult(new ArrayList<>(samples), maxPending.get(), maxLockWaiters.get());
+        return new RunResult(new ArrayList<>(samples), maxPending.get(), maxLockWaiters.get(),
+                new ArrayList<>(probes), maxLimitInUse.get(), timerDeltas(before));
+    }
+
+    // 앱 풀 밖의 연결로 좌석을 잠근다. 측정이 끝나면 롤백해 좌석을 그대로 둔다. 잠금을 잡은 뒤에 부하를 시작한다
+    private Thread startLocker(List<Long> lockedSeats, AtomicBoolean running) throws InterruptedException {
+        var locked = new CountDownLatch(1);
+        var thread = Thread.ofPlatform().start(() -> {
+            try (var connection = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
+                connection.setAutoCommit(false);
+                try (var statement = connection.prepareStatement(
+                        "SELECT id FROM schedule_seats WHERE id = ANY (?) ORDER BY id FOR UPDATE")) {
+                    statement.setArray(1, connection.createArrayOf("bigint", lockedSeats.toArray()));
+                    statement.executeQuery().close();
+                }
+                locked.countDown();
+                while (running.get()) {
+                    Thread.sleep(SAMPLE_INTERVAL);
+                }
+                connection.rollback();
+            } catch (Exception exception) {
+                throw new IllegalStateException("좌석 잠금 트랜잭션을 유지하지 못했습니다", exception);
+            }
+        });
+        if (!locked.await(5, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("좌석 잠금을 잡지 못했습니다");
+        }
+        return thread;
+    }
+
+    private Sample probe(Long scheduleId) {
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/schedules/" + scheduleId
+                        + "/seats"))
+                .timeout(REQUEST_TIMEOUT)
+                .header("X-User-Id", "1")
+                .header("X-User-Role", "USER")
+                .GET()
+                .build();
+        var start = System.nanoTime();
+        try {
+            var response = http.send(request, HttpResponse.BodyHandlers.discarding());
+            return new Sample(String.valueOf(response.statusCode()), start, System.nanoTime());
+        } catch (HttpTimeoutException timeout) {
+            return new Sample("TIMEOUT", start, System.nanoTime());
+        } catch (Exception exception) {
+            return new Sample("CLIENT_ERROR:" + exception.getClass().getSimpleName(), start, System.nanoTime());
+        }
     }
 
     private Sample send(Long scheduleId, List<Long> seatIds) {
@@ -221,6 +550,9 @@ class SeatHoldLoadTest {
             if (response.statusCode() == 409) {
                 status = "409:" + errorCode(response.body());
             }
+            if (response.statusCode() == 201) {
+                acknowledgedSeats.addAndGet(seatIds.size());
+            }
             return new Sample(status, start, System.nanoTime());
         } catch (HttpTimeoutException timeout) {
             return new Sample("TIMEOUT", start, System.nanoTime());
@@ -240,13 +572,18 @@ class SeatHoldLoadTest {
     }
 
     // Note: 잠금 대기 세션 수는 앱 커넥션 풀과 별도의 연결로 잰다. 같은 풀을 쓰면 측정이 풀 자리를 뺏어 결과를 바꾼다
-    private void sample(AtomicBoolean running, AtomicInteger maxPending, AtomicInteger maxLockWaiters) {
+    private void sample(AtomicBoolean running, AtomicInteger maxPending, AtomicInteger maxLockWaiters,
+            AtomicInteger maxLimitInUse) {
         try (var connection = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
                 var statement = connection.prepareStatement("SELECT count(*) FROM pg_stat_activity"
                         + " WHERE datname = current_database() AND wait_event_type = 'Lock'")) {
             var pool = dataSource.unwrap(HikariDataSource.class).getHikariPoolMXBean();
             while (running.get()) {
                 maxPending.accumulateAndGet(pool.getThreadsAwaitingConnection(), Math::max);
+                var inUse = meterRegistry.find(LIMIT_IN_USE).gauge();
+                if (inUse != null) {
+                    maxLimitInUse.accumulateAndGet((int) inUse.value(), Math::max);
+                }
                 try (var resultSet = statement.executeQuery()) {
                     resultSet.next();
                     maxLockWaiters.accumulateAndGet(resultSet.getInt(1), Math::max);
@@ -281,6 +618,23 @@ class SeatHoldLoadTest {
         metrics.put("status", result.countByStatus());
         metrics.put("maxPendingConnections", result.maxPendingConnections());
         metrics.put("maxLockWaiters", result.maxLockWaiters());
+        var seatsHeld = jdbc.queryForObject("SELECT count(*) FROM schedule_seats WHERE schedule_id = ?"
+                + " AND status = 'HELD'", Integer.class, scheduleId);
+        metrics.put("seatsHeld", seatsHeld);
+        metrics.put("ghostSeats", seatsHeld - acknowledgedSeats.get());
+        if (!result.probes().isEmpty()) {
+            var probes = result.probes();
+            var probeMicros = probes.stream().mapToLong(Sample::micros).sorted().toArray();
+            var probeCounts = new TreeMap<String, Long>();
+            probes.forEach(probe -> probeCounts.merge(probe.status(), 1L, Long::sum));
+            metrics.put("probeRequests", probes.size());
+            metrics.put("probeOkRate", Math.round(1000.0 * probeCounts.getOrDefault("200", 0L) / probes.size()) / 10.0);
+            metrics.put("probeP50Ms", percentileMs(probeMicros, 50));
+            metrics.put("probeP95Ms", percentileMs(probeMicros, 95));
+            metrics.put("probeStatus", probeCounts);
+        }
+        metrics.put("maxLimitInUse", result.maxLimitInUse());
+        metrics.putAll(result.meters());
         metrics.put("doubleSold", fixture.doubleSoldSeats(scheduleId));
         metrics.put("seatMismatches", fixture.seatStatusMismatches(scheduleId));
         System.out.printf("[SEATHOLD-LOAD] %s %s%n", scenario, metrics);

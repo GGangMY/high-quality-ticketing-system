@@ -85,7 +85,9 @@ public class AsyncSeatHoldService {
         if (seats.size() != seatIds.size()) {
             throw new BusinessException(SeatHoldErrorCode.SEAT_COUNT_MISMATCH);
         }
-        requireAllHoldable(seats);
+        if (!SeatHoldRules.allHoldable(seats)) {
+            throw new BusinessException(SeatHoldErrorCode.SEAT_ALREADY_HELD);
+        }
 
         seatHoldRequests.save(SeatHoldRequest.request(command.requestId(), command.userId(), schedule.getId(),
                 seatIds, command.entryTokenJti()));
@@ -94,16 +96,6 @@ public class AsyncSeatHoldService {
                 new SeatHoldRequested(command.requestId(), command.userId(), schedule.getId(), section, seatIds,
                         command.entryTokenJti(), now));
         return command.requestId();
-    }
-
-    // Note: 잠그지 않고 읽은 상태라 그사이 바뀔 수 있다. 여기서 AVAILABLE이어도 소비자의 조건부 UPDATE가 최종 판단이고,
-    // 여기서 잡혀 보인 좌석은 같은 순간 동기형도 409를 준다. 오픈 피크 요청 대부분이 이 경우라 줄에 넣기 전에 거른다(ADR 0057)
-    private static void requireAllHoldable(List<ScheduleSeat> seats) {
-        for (var seat : seats) {
-            if (!seat.isHoldable()) {
-                throw new BusinessException(SeatHoldErrorCode.SEAT_ALREADY_HELD);
-            }
-        }
     }
 
     // 구역이 여럿이면 사전순으로 가장 작은 구역을 키로 쓴다. 같은 요청은 늘 같은 키를 얻는다(ADR 0056)

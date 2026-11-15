@@ -39,13 +39,16 @@ public class SeatHoldController {
 
     private final SyncSeatHoldService syncService;
     private final AsyncSeatHoldService asyncService;
+    private final SeatHoldConcurrencyLimit concurrencyLimit;
     private final SeatHoldMode mode;
     private final SeatHoldMetrics metrics;
 
     public SeatHoldController(SyncSeatHoldService syncService, AsyncSeatHoldService asyncService,
-            @Value("${seat-hold.mode:sync}") String mode, SeatHoldMetrics metrics) {
+            SeatHoldConcurrencyLimit concurrencyLimit, @Value("${seat-hold.mode:sync}") String mode,
+            SeatHoldMetrics metrics) {
         this.syncService = syncService;
         this.asyncService = asyncService;
+        this.concurrencyLimit = concurrencyLimit;
         this.mode = SeatHoldMode.from(mode);
         this.metrics = metrics;
     }
@@ -73,9 +76,9 @@ public class SeatHoldController {
         var command = new HoldSeatsCommand(currentUserId, RequestIds.parse(idempotencyKey), scheduleId,
                 request.seatIds(), entryTokenJti);
         if (mode == SeatHoldMode.ASYNC) {
-            return accepted(asyncService.accept(command));
+            return accepted(concurrencyLimit.run(() -> asyncService.accept(command)));
         }
-        return switch (syncService.hold(command)) {
+        return switch (concurrencyLimit.run(() -> syncService.hold(command))) {
             case SyncHoldOutcome.Held held -> ResponseEntity.status(201).body(
                     SuccessResponse.of(201, "선점되었습니다", HoldResponse.from(held.result()), MDC.get("traceId")));
             // 접수형으로 시작한 요청은 동기형 서버에서도 202로 답한다(ADR 0058)

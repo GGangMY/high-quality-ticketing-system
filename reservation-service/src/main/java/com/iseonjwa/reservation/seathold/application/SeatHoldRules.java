@@ -3,6 +3,7 @@ package com.iseonjwa.reservation.seathold.application;
 import com.iseonjwa.common.response.BusinessException;
 import com.iseonjwa.common.response.CommonErrorCode;
 import com.iseonjwa.reservation.concert.domain.entity.Schedule;
+import com.iseonjwa.reservation.concert.domain.entity.ScheduleSeat;
 import com.iseonjwa.reservation.seathold.domain.entity.SeatHoldRequest;
 import com.iseonjwa.reservation.seathold.domain.repository.SeatHoldRequestRepository;
 
@@ -44,6 +45,12 @@ final class SeatHoldRules {
         if (command.entryTokenJti() != null && requests.existsActiveByEntryTokenJti(command.entryTokenJti())) {
             throw new BusinessException(SeatHoldErrorCode.ENTRY_TOKEN_USED);
         }
+    }
+
+    // Note: 잠그지 않고 읽은 상태라 그사이 바뀔 수 있다. 여기서 AVAILABLE이어도 좌석 조건부 UPDATE가 최종 판단이다.
+    // 여기서 잡혀 보인 좌석은 커밋된 선점이라 UPDATE까지 가도 409다. 오픈 피크 요청 대부분이 이 경우라 먼저 거른다(ADR 0057, 0060)
+    static boolean allHoldable(List<ScheduleSeat> seats) {
+        return seats.stream().allMatch(ScheduleSeat::isHoldable);
     }
 
     // 같은 멱등키는 같은 사용자·회차·좌석일 때만 재요청으로 인정한다(contracts.md 3-1)
