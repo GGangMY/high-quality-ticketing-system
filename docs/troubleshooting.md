@@ -690,3 +690,21 @@
 - 해결: `run.sh` 기본값을 `K6_MEMORY=6g`, `K6_GOMEMLIMIT=5632MiB`로 올렸다(측정 브랜치 `78a91fc`). 같은 조건에서 K1 S 1,280명이 100%(p95 32ms)가 되고 k6 CPU가 약 7코어로 내려갔다. F 3회에서도 1,280명은 2회 100%, 1회 81.6%였다. k6가 여유 있어도 차단기는 가끔 열리지만 훨씬 드물다. 상한 근처에서 잰 회의 해석은 측정 브랜치 `STEPS.md`와 [판단 기록](ai-judgments/kwonwoo/2026-11-09-k1-stop-at-p4c-skip-p4d.md)에서 정정했다.
 - 덧붙임: `GOMEMLIMIT=5.5GiB`처럼 소수를 쓰면 k6가 시작하지 못하고 `k6_exit` 2로 끝난다. 정수와 단위(`5632MiB`)로 쓴다.
 - 배운 점: 부하 생성기의 CPU·메모리를 서버 지표와 같이 본다. 생성기가 상한에 붙으면 요청 모양(몰림)이 바뀌어, 다른 구성 요소의 한계처럼 보이는 결과를 만든다. 기기를 바꾸면 측정 도구의 상한도 다시 정한다.
+
+### TS-70 Kafka 헬스체크가 실행마다 JVM을 띄워 약 12초마다 CPU가 튀었다
+- 서비스·작성: infra(kafka) / kangmin / 2026-11-16
+- 문제: 11/15 배포 서버(4 vCPU 한 대)에서 부하가 없을 때 Kafka 컨테이너 CPU가 평소 1.2%인데 약 12초마다 45~224%로 1~2초씩 튀었다. 튀는 시각이 헬스체크 시작 시각과 겹쳤고, 헬스체크 한 번이 1.80~3.76초 걸렸다. 오픈 피크에도 kafka가 25~228%였다. 같은 장비의 앱과 CPU를 나눠 써 측정값에 잡음이 섞인다.
+- 원인: `compose.yml`의 kafka 헬스체크가 10초마다 `kafka-broker-api-versions.sh`를 실행했고, 이 스크립트는 실행할 때마다 JVM을 새로 띄워 클래스를 읽고 관리 클라이언트를 만든다. 약 12초 주기는 간격 10초에 실행 시간 1~4초가 더해진 값이다(Docker가 앞 검사가 끝난 뒤 간격을 세는 것으로 본다. 추정).
+- 해결: 검사를 JVM 없이 bash `/dev/tcp`로 ApiVersions 요청(API 키 18, 버전 0) 15바이트를 보내고 응답 앞 4바이트(길이)가 3초 안에 오는지 보는 방식으로 바꿨다. 간격은 30초, 기동 중 120초는 2초마다 검사한다(`start_period`·`start_interval`, Docker 25 이상. 배포 서버는 29.9). 관련 파일 `compose.yml`, `loadtest/deploy/compose.background-cpu.yml`(`KAFKA_HEALTH_INTERVAL` 기본값 30s).
+- 확인(로컬, Docker 29.8): 같은 이미지에서 새 검사는 4~6ms, 옛 스크립트는 1,348~1,604ms였다. `docker pause`로 브로커를 멈추면 새 검사는 3초 뒤 실패하고 포트만 여는 검사(`</dev/tcp/localhost/9092`)는 성공했다. 닫힌 포트와 엉뚱한 바이트도 실패한다. `docker compose up -d --wait kafka kafka-ui`는 7초에 끝났고 kafka는 기동 2초 뒤 두 번째 검사에서 healthy, `depends_on: condition: service_healthy`인 kafka-ui도 healthy였다. 그 뒤 약 50초 동안 kafka CPU 표본 25개의 최댓값은 4.21%였다. 배포 서버 재측정은 아직 하지 않았다.
+- 배운 점: 헬스체크는 장비의 상시 부하다. 무거운 CLI(JVM 도구)를 짧은 간격으로 돌리면 같은 장비의 측정에 주기적인 잡음이 생긴다. 프로토콜 요청을 가볍게 직접 보내면 포트 확인보다 강하면서 비용은 거의 없다.
+
+### TS-71 결제 서비스가 힙 밖 메모리로 컨테이너 상한(768MiB)을 넘어 cgroup OOM으로 하루 다섯 번 죽었는데 inspect는 exit 0이었다
+- 서비스·작성: payment-service·infra / kangmin / 2026-11-16
+- 문제: 11/15(UTC) 배포 서버에서 payment-service가 11:34, 14:34, 15:12, 16:45, 17:41에 다시 시작됐다(한국 시간 11/15 20:34, 23:34, 11/16 00:12, 01:45, 02:41). 커널 로그는 `Memory cgroup out of memory: Killed process ... (java) ... anon-rss:780020kB`, `memory: usage 786548kB, limit 786432kB`였고, dockerd 로그는 `restarting container ... exitCode=137`이었다. 그런데 `docker inspect`는 `RestartCount=1`, `ExitCode=0`, `OOMKilled=false`를 보여 처음에는 죽은 줄 몰랐다.
+- 원인: 힙 최대(512MB)와 힙 밖 메모리의 합이 상한을 넘는 구조였다. 재시작 7분 뒤 실측은 cgroup 사용 700MiB, 힙 committed 375MB, 비힙 committed 193MB(Metaspace 134MB, 코드 캐시 41MB, Compressed Class 18MB), 직접 버퍼 0.4MB, 스레드 78~94개였고 RSS에서 힙·비힙을 뺀 JVM 지표 밖 메모리(스레드 스택, GC 자료구조, malloc)가 약 144MB였다. 힙이 512MB까지 커지면 512 + 약 216 + 약 144 ≈ 870MB로 768MiB를 넘는다. 힙을 키운 계기는 5분마다 `housekeeping-1` 스레드에서 도는 대사 회차다. 7일 창의 결제·예매(약 19.5만 건)를 회차마다 메모리에 올린다(재시작 직후 회차 로그 `pages=1958 items=195793`). 다섯 건 중 세 건은 그 스레드가 메모리를 요청하다 OOM을 일으켰다. 힙 자체는 `-Xmx` 안이라 Java `OutOfMemoryError`는 없었다.
+- inspect 함정: `restart: unless-stopped` 컨테이너는 다시 시작되면 `State`(ExitCode, OOMKilled)가 새 실행 값으로 덮인다. 죽은 이력은 `RestartCount`, dockerd 로그의 `exitCode=137`, 커널 로그(`journalctl -k | grep -i "killed process"`)로 본다. 컨테이너 안의 `memory.events`도 새 cgroup이라 0으로 보인다.
+- 서비스 확정: 상한 786432kB(768MiB)이면서 java, UID 100인 컨테이너는 payment-service뿐이다(zipkin은 UID 1000, prometheus는 java가 아니다). 17:41 건의 cgroup(`docker-bcd0f670...`)은 지금의 `iseonjwa-payment-service-1` ID와 같고, 앞의 두 ID(`e290f7b7...`, `d9d84be5...`)는 15:35, 16:53에 payment를 다시 만들 때 지워진 컨테이너다. 같은 날 11:00 grafana(384MiB)도 cgroup OOM이 한 번 있었다(별건).
+- 해결: `compose.deploy.yml`의 payment-service 상한을 768m → 1024m로 올리고 힙은 그대로 두었다. 힙 밖 상한 `-XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m -XX:MaxDirectMemorySize=64m`을 더했다(실측의 약 2~3배, 누수 시 강제 종료 대신 JVM 오류로 보이게). 컨테이너 상한 합은 12,992 → 13,248MiB로 장비 15,701MiB의 84%다. 관련 이슈 ISE-264.
+- 남은 것: 대사 회차가 7일 창 전체를 회차마다 올리는 구조는 데이터가 쌓일수록 힙을 더 쓴다. 회차를 이어 읽게 하는 것은 결제 담당 결정으로 남긴다. user(640m, 힙 384m, 비힙 193MB)와 reservation(1152m, 힙 768m, 비힙 272MB)도 힙이 최대까지 크면 계산상 상한을 넘는다(죽은 기록은 없다).
+- 배운 점: 컨테이너 상한은 `-Xmx`가 아니라 힙 최대 + 비힙(Metaspace·코드 캐시) + 직접 버퍼 + 스레드·GC·malloc으로 잡는다. 실측 RSS에서 힙·비힙 committed를 빼면 지표 밖 메모리를 알 수 있다.

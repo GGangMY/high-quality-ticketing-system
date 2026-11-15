@@ -55,10 +55,11 @@
 | 0049 | [내부 AI 상담은 별도 모듈 assistant-service로 두고, 벡터 DB 없이 키워드 검색 + Claude citations로 답하며, 키가 없거나 장애면 검색 모드로 강등한다](0049-assistant-service-claude-api.md) | 채택 | 2026-11-09 |
 | 0050 | [Gateway auth-redis 차단기는 Redis 장애만 세고, 자기 과부하는 bulkhead가 거절하며 거절 비율은 경보로 따로 본다](0050-gateway-auth-redis-breaker-bulkhead-split.md) | 채택 (2026-11-13 선조치 후보고, 대기열 담당 사후 확인. SA 9-4·9-5의 Gateway 블랙리스트 Redis 값 대체) | 2026-11-11 |
 | 0051 | [추첨 자동결제는 결제 명령 소비자를 파티션 수만큼 늘리고, 자동결제 전용 PG 허가(pg-billing)로 일반 결제와 나눈다](0051-lottery-billing-consumer-concurrency-and-billing-bulkhead.md) | 채택 (11/12 결제 담당 합의·구현 `#521`. 일반 결제 허가는 24–30(지금 30, ISE-246 뒤 확정). 0039 대체. D10 선점 30분 근거 정정 포함) | 2026-11-11 |
-| 0052 | [운영 요청 로그는 5xx·끊긴 요청·200ms 이상만 남기고, 정상 요청은 트레이스와 지표로 본다](0052-request-log-problems-only-in-operation.md) | 채택 (2026-11-13 선조치 후보고, 결제 담당 사후 확인. 0045 결정 2의 운영 기본값 대체, 1단계 Gateway) | 2026-11-12 |
+| 0052 | [운영 요청 로그는 5xx·끊긴 요청·200ms 이상만 남기고, 정상 요청은 트레이스와 지표로 본다](0052-request-log-problems-only-in-operation.md) | 채택 (2026-11-13 선조치 후보고, 결제 담당 사후 확인. 0045 결정 2의 운영 기본값 대체, 1단계 Gateway, 2단계 서비스 11/16 ISE-286) | 2026-11-12 |
 | 0053 | [입장 토큰은 좌석 선점이 성공한 순간 소모하고, 소모 여부는 선점 트랜잭션의 DB 고유 제약으로 확인한다](0053-entry-token-consume-on-hold.md) | 채택 (2026-11-14, ISE-207 contract. 대기열 정리는 트랜잭션 밖 메서드 호출, 거절은 403. 프런트 구현 남음. SA 7-3 "1회용이 될 수 없다" 중 선점 API 부분 대체) | 2026-11-12 |
 | 0054 | [회차 좌석 배치 캐시(P4b)는 Redis가 아니라 reservation-service 메모리에 둔다](0054-seat-layout-local-cache.md) | 제안 (최권우 측정 코드와 비교 측정 뒤 결정) | 2026-11-08 |
 | 0055 | [결제 토큰은 비대칭 서명(ES256)으로 하고, 개인키는 예매 서비스에만 공개키는 결제 서비스에만 준다](0055-payment-token-asymmetric-signature.md) | 제안 (ISE-245 contract. 발급기 담당 확인 뒤 채택. SA 7-3 HMAC·0025의 키 부분 대체) | 2026-11-12 |
 | 0056 | [접수형 선점 요청의 좌석이 여러 구역에 걸치면 가장 작은 구역을 메시지 키로 쓴다](0056-async-seat-hold-key-for-mixed-sections.md) | 채택 (ISE-16, SA 10-1 키 형식 유지) | 2026-11-12 |
 | 0057 | [접수형 선점은 접수에서 이미 잡힌 좌석을 즉시 거절하고, 모드는 기동 시 정하며, 결과 조회는 모드와 상관없이 연다](0057-async-seat-hold-intake-and-mode.md) | 채택 (ISE-16. 접수형 POST 즉시 409는 ISE-120 담당 확인 뒤 확정) | 2026-11-12 |
 | 0058 | [접수형으로 시작한 선점 요청은 동기형 서버가 같은 키로 다시 받아도 202로 답한다](0058-sync-replay-of-async-requests.md) | 채택 (ISE-16, 계약 3-2 ⑦) | 2026-11-12 |
+| 0059 | [구역·매수만 받아 서버가 좌석을 고르는 자동 배정 선점을 FOR UPDATE SKIP LOCKED로 더하고, 멱등은 조건 문자열로 비교한다](0059-seat-auto-assign-skip-locked.md) | 제안 (ISE-264, 강민 위임 야간 작업 선조치 후보고, 좌석 선점 담당 사후 확인) | 2026-11-16 |
