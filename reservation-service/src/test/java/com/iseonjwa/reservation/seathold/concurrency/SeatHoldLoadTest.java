@@ -62,7 +62,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
         properties = {"spring.config.import=", "spring.cloud.config.enabled=false", "eureka.client.enabled=false",
                 "spring.datasource.hikari.maximum-pool-size=${SEATHOLD_LOAD_POOL:5}",
                 "spring.datasource.hikari.connection-timeout=${SEATHOLD_LOAD_CONNECTION_TIMEOUT:3000}",
-                "seat-hold.max-concurrent=${SEATHOLD_LOAD_MAX_CONCURRENT:0}"})
+                "seat-hold.max-concurrent=${SEATHOLD_LOAD_MAX_CONCURRENT:0}",
+                "seat-hold.max-concurrent-queue=${SEATHOLD_LOAD_MAX_QUEUE:64}",
+                "spring.threads.virtual.enabled=${SEATHOLD_LOAD_VIRTUAL_THREADS:false}"})
 @ActiveProfiles("test")
 class SeatHoldLoadTest {
     // Gateway 전체 타임아웃(SA 9-4)과 같게 둔다. 넘으면 타임아웃 오류로 센다
@@ -76,6 +78,11 @@ class SeatHoldLoadTest {
     private static final String LIMIT_WAIT = "seathold.concurrency.wait";
     private static final String LIMIT_IN_USE = "seathold.concurrency.in_use";
     private static final List<String> TRACKED_TIMERS = List.of(CONNECTION_USAGE, SEAT_LOCK, LIMIT_WAIT);
+    // 소비자 재시도 모사(열린 모델). 프론트 seatHold.ts처럼 503·429·504·응답 없음은 같은 사용자·같은 멱등키로
+    // 최대 4번 보낸다. 간격은 queryRetryDelay와 같다(1초 × 2^n, 최대 8초, +0~20%)
+    private static final boolean CLIENT_RETRY = Boolean.parseBoolean(
+            System.getenv().getOrDefault("SEATHOLD_LOAD_CLIENT_RETRY", "false"));
+    private static final int CLIENT_MAX_ATTEMPTS = 4;
     private static final int PROBE_RATE = Integer.parseInt(
             System.getenv().getOrDefault("SEATHOLD_LOAD_PROBE_RATE", "0"));
     // 503을 받은 사용자가 다시 누르기까지의 시간. 0이면 바로 다시 보낸다. 쉬지 않으면 503 폭주가 같은 JVM의 CPU를 먹어
@@ -292,6 +299,11 @@ class SeatHoldLoadTest {
         }
     }
 
+    private long rejected(String reason) {
+        var counter = meterRegistry.find("seathold.concurrency.rejected").tag("reason", reason).counter();
+        return counter == null ? 0 : (long) counter.count();
+    }
+
     // 타이머 누적값(건수, 합계, 버킷별 건수)을 시나리오 시작 때 적어 둔다
     private Map<String, double[]> timerMarks() {
         var marks = new LinkedHashMap<String, double[]>();
@@ -384,8 +396,16 @@ class SeatHoldLoadTest {
         }
     }
 
+    // 사용자 한 명의 선점 시도 전체(재시도 포함). status는 마지막 응답, attempts는 보낸 횟수
+    record Intent(String status, long startNanos, long endNanos, int attempts) {
+        long micros() {
+            return TimeUnit.NANOSECONDS.toMicros(endNanos - startNanos);
+        }
+    }
+
     record RunResult(List<Sample> samples, int maxPendingConnections, int maxLockWaiters, List<Sample> probes,
-            int maxLimitInUse, Map<String, Object> meters) {
+            int maxLimitInUse, Map<String, Object> meters, List<Intent> intents, long rejectedQueueFull,
+            long rejectedWaitTimeout) {
         Map<String, Long> countByStatus() {
             var counts = new TreeMap<String, Long>();
             for (var sample : samples) {
@@ -415,11 +435,14 @@ class SeatHoldLoadTest {
         acknowledgedSeats.set(0);
         var samples = new ConcurrentLinkedQueue<Sample>();
         var probes = new ConcurrentLinkedQueue<Sample>();
+        var intents = new ConcurrentLinkedQueue<Intent>();
         var running = new AtomicBoolean(true);
         var maxPending = new AtomicInteger();
         var maxLockWaiters = new AtomicInteger();
         var maxLimitInUse = new AtomicInteger();
         var before = timerMarks();
+        var queueFullBefore = rejected("queue_full");
+        var waitTimeoutBefore = rejected("wait_timeout");
         var locker = lockedSeats == null ? null : startLocker(lockedSeats, running);
         var sampler = Thread.ofPlatform().start(() -> sample(running, maxPending, maxLockWaiters, maxLimitInUse));
         var probeExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -456,7 +479,13 @@ class SeatHoldLoadTest {
                     if (wait > 0) {
                         TimeUnit.NANOSECONDS.sleep(wait);
                     }
-                    executor.submit(() -> samples.add(send(scheduleId, chooser.apply(ThreadLocalRandom.current()))));
+                    if (CLIENT_RETRY) {
+                        executor.submit(() -> intents.add(intent(scheduleId, chooser.apply(ThreadLocalRandom.current()),
+                                samples)));
+                    } else {
+                        executor.submit(() -> samples.add(send(scheduleId,
+                                chooser.apply(ThreadLocalRandom.current()))));
+                    }
                 }
             }
             var closedVus = arrivalRate == null ? vus : 0;
@@ -484,7 +513,8 @@ class SeatHoldLoadTest {
             }
         }
         return new RunResult(new ArrayList<>(samples), maxPending.get(), maxLockWaiters.get(),
-                new ArrayList<>(probes), maxLimitInUse.get(), timerDeltas(before));
+                new ArrayList<>(probes), maxLimitInUse.get(), timerDeltas(before), new ArrayList<>(intents),
+                rejected("queue_full") - queueFullBefore, rejected("wait_timeout") - waitTimeoutBefore);
     }
 
     // 앱 풀 밖의 연결로 좌석을 잠근다. 측정이 끝나면 롤백해 좌석을 그대로 둔다. 잠금을 잡은 뒤에 부하를 시작한다
@@ -532,15 +562,45 @@ class SeatHoldLoadTest {
         }
     }
 
+    // 같은 사용자·같은 멱등키로 재시도한다. 서버는 같은 키를 재응답하므로 앞 시도가 타임아웃 뒤 처리됐어도 좌석이 두 번 잡히지 않는다
+    private Intent intent(Long scheduleId, List<Long> seatIds, ConcurrentLinkedQueue<Sample> samples)
+            throws InterruptedException {
+        var userId = userSequence.incrementAndGet();
+        var key = UUID.randomUUID().toString();
+        var start = System.nanoTime();
+        Sample last = null;
+        var attempts = 0;
+        while (attempts < CLIENT_MAX_ATTEMPTS) {
+            last = send(scheduleId, seatIds, userId, key);
+            samples.add(last);
+            attempts++;
+            if (!clientRetryable(last.status()) || attempts >= CLIENT_MAX_ATTEMPTS) {
+                break;
+            }
+            var baseMillis = Math.min(1_000L << (attempts - 1), 8_000L);
+            Thread.sleep(Math.round(baseMillis * (1 + ThreadLocalRandom.current().nextDouble() * 0.2)));
+        }
+        return new Intent(last.status(), start, System.nanoTime(), attempts);
+    }
+
+    private static boolean clientRetryable(String status) {
+        return status.equals("503") || status.equals("429") || status.equals("504") || status.equals("TIMEOUT")
+                || status.startsWith("CLIENT_ERROR");
+    }
+
     private Sample send(Long scheduleId, List<Long> seatIds) {
+        return send(scheduleId, seatIds, userSequence.incrementAndGet(), UUID.randomUUID().toString());
+    }
+
+    private Sample send(Long scheduleId, List<Long> seatIds, long userId, String idempotencyKey) {
         var body = "{\"seatIds\":" + seatIds + "}";
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/v1/schedules/" + scheduleId
                         + "/reservations"))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Content-Type", "application/json")
-                .header("X-User-Id", String.valueOf(userSequence.incrementAndGet()))
+                .header("X-User-Id", String.valueOf(userId))
                 .header("X-User-Role", "USER")
-                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .header("Idempotency-Key", idempotencyKey)
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         var start = System.nanoTime();
@@ -633,7 +693,25 @@ class SeatHoldLoadTest {
             metrics.put("probeP95Ms", percentileMs(probeMicros, 95));
             metrics.put("probeStatus", probeCounts);
         }
+        if (!result.intents().isEmpty()) {
+            // 소비자 기준: 사용자 한 명이 재시도까지 해서 받은 마지막 결과와 걸린 시간
+            var intents = result.intents();
+            var intentCounts = new TreeMap<String, Long>();
+            intents.forEach(intent -> intentCounts.merge(intent.status(), 1L, Long::sum));
+            var finished = intentCounts.getOrDefault("201", 0L) + intents.stream()
+                    .filter(intent -> intent.status().startsWith("409")).count();
+            var intentMicros = intents.stream().mapToLong(Intent::micros).sorted().toArray();
+            metrics.put("intents", intents.size());
+            metrics.put("intentFailRate", Math.round(1000.0 * (intents.size() - finished) / intents.size()) / 10.0);
+            metrics.put("intentAvgAttempts",
+                    Math.round(100.0 * intents.stream().mapToInt(Intent::attempts).average().orElse(0)) / 100.0);
+            metrics.put("intentP50Ms", percentileMs(intentMicros, 50));
+            metrics.put("intentP95Ms", percentileMs(intentMicros, 95));
+            metrics.put("intentStatus", intentCounts);
+        }
         metrics.put("maxLimitInUse", result.maxLimitInUse());
+        metrics.put("rejectedQueueFull", result.rejectedQueueFull());
+        metrics.put("rejectedWaitTimeout", result.rejectedWaitTimeout());
         metrics.putAll(result.meters());
         metrics.put("doubleSold", fixture.doubleSoldSeats(scheduleId));
         metrics.put("seatMismatches", fixture.seatStatusMismatches(scheduleId));

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -26,19 +27,29 @@ import java.util.function.Supplier;
 public class SeatHoldConcurrencyLimit {
     private final Semaphore permits;
     private final Duration wait;
-    private final Counter rejected;
+    private final int maxWaiting;
+    private final AtomicInteger waiting = new AtomicInteger();
+    private final Counter rejectedQueueFull;
+    private final Counter rejectedWaitTimeout;
     private final Timer waited;
 
+    /**
+     * @param maxWaiting 자리를 기다릴 수 있는 요청 수. 차 있으면 기다리지 않고 바로 503이다
+     */
     public SeatHoldConcurrencyLimit(@Value("${seat-hold.max-concurrent:0}") int maxConcurrent,
-            @Value("${seat-hold.max-concurrent-wait:200ms}") Duration wait, MeterRegistry meterRegistry) {
-        if (maxConcurrent < 0 || wait.isNegative()) {
-            throw new IllegalArgumentException("선점 동시 처리 상한과 대기는 0 이상이어야 합니다: " + maxConcurrent + ", " + wait);
+            @Value("${seat-hold.max-concurrent-wait:200ms}") Duration wait,
+            @Value("${seat-hold.max-concurrent-queue:64}") int maxWaiting, MeterRegistry meterRegistry) {
+        if (maxConcurrent < 0 || wait.isNegative() || maxWaiting < 0) {
+            throw new IllegalArgumentException("선점 동시 처리 상한·대기·대기 인원은 0 이상이어야 합니다: "
+                    + maxConcurrent + ", " + wait + ", " + maxWaiting);
         }
         this.permits = maxConcurrent == 0 ? null : new Semaphore(maxConcurrent, true);
         this.wait = wait;
-        this.rejected = Counter.builder("seathold.concurrency.rejected")
-                .description("선점 동시 처리 상한을 넘어 503으로 거절한 요청 수")
-                .register(meterRegistry);
+        this.maxWaiting = maxWaiting;
+        // 이유를 나눠 센다. 대기 인원 초과(queue_full)는 몰림이 처리 한계를 넘은 것이고, 대기 시간 초과(wait_timeout)는
+        // 자리를 쥔 요청이 오래 걸린 것(잠금 장애 등)이다
+        this.rejectedQueueFull = rejectedCounter(meterRegistry, "queue_full");
+        this.rejectedWaitTimeout = rejectedCounter(meterRegistry, "wait_timeout");
         // Note: 상한 값을 정하려면 거절 수만으로는 모자란다. 사용 중인 자리가 상한에 늘 붙어 있는지, 자리를 얼마나
         // 기다렸는지를 함께 봐야 "상한이 작아서 거절"인지 "처리 가능량을 넘어서 거절"인지 가를 수 있다
         this.waited = Timer.builder("seathold.concurrency.wait")
@@ -60,7 +71,6 @@ public class SeatHoldConcurrencyLimit {
             return hold.get();
         }
         if (!acquire()) {
-            rejected.increment();
             throw new BusinessException(CommonErrorCode.SERVICE_UNAVAILABLE);
         }
         try {
@@ -70,15 +80,46 @@ public class SeatHoldConcurrencyLimit {
         }
     }
 
+    // Note: 자리를 기다리는 동안 요청은 Tomcat 작업 스레드를 쥔다. 기다리는 인원을 묶지 않으면 처리 한계 근처에서
+    // 거의 모든 요청이 기다려 스레드(기본 200)가 바닥나고, 스레드를 못 받은 요청은 시한 없는 Tomcat 작업 대기열에서
+    // 3초 타임아웃을 맞는다. 좌석 조회도 같은 스레드를 써서 함께 실패했다(seathold-pre-deploy-measurements.md 11절).
+    // 대기 인원이 차 있으면 기다리지 않고 바로 503으로 돌려보내 스레드 점유를 "자리 수 + 대기 인원"으로 묶는다
     private boolean acquire() {
         var started = System.nanoTime();
         try {
-            return permits.tryAcquire(wait.toNanos(), TimeUnit.NANOSECONDS);
+            // Note: 시한 없는 tryAcquire()는 공정 세마포어에서도 기다리는 요청을 건너뛰어 자리를 가로챈다(Semaphore 문서).
+            // 시한 0을 주면 줄 순서를 지킨다
+            if (permits.tryAcquire(0, TimeUnit.NANOSECONDS)) {
+                return true;
+            }
+            // 확인과 대기 진입이 원자적이지 않아 순간적으로 maxWaiting을 조금 넘을 수 있다. 상한의 목적(스레드 점유 묶기)에는 무해하다
+            if (waiting.incrementAndGet() > maxWaiting) {
+                waiting.decrementAndGet();
+                rejectedQueueFull.increment();
+                return false;
+            }
+            try {
+                if (permits.tryAcquire(wait.toNanos(), TimeUnit.NANOSECONDS)) {
+                    return true;
+                }
+                rejectedWaitTimeout.increment();
+                return false;
+            } finally {
+                waiting.decrementAndGet();
+            }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            rejectedWaitTimeout.increment();
             return false;
         } finally {
             waited.record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
         }
+    }
+
+    private static Counter rejectedCounter(MeterRegistry registry, String reason) {
+        return Counter.builder("seathold.concurrency.rejected")
+                .description("선점 동시 처리 상한을 넘어 503으로 거절한 요청 수(이유별)")
+                .tag("reason", reason)
+                .register(registry);
     }
 }
