@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-// 서비스 API 문서(/v3/api-docs)의 공통 머리말이다. 화면(Swagger UI)은 Gateway의 /api/docs에 하나만 있다(ADR 0062).
+// 서비스 API 문서(/v3/api-docs)의 공통 머리말이다. 화면(Swagger UI)은 Gateway의 /api/docs에 하나만 있다(ADR 0063).
 // springdoc을 넣은 서비스에서만 켜진다. 클래스 이름 문자열로 검사해 springdoc이 없는 서비스도 이 설정을 읽다 멈추지 않는다
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(name = "io.swagger.v3.oas.models.OpenAPI")

@@ -125,7 +125,7 @@ Gateway는 준비 완료 전에 Redis PING으로 실제 연결을 예열한다. 
 
 ## API 문서(Swagger)
 
-[Swagger UI](http://localhost:8080/api/docs)는 Gateway가 띄운다. 위쪽 드롭다운에서 서비스(user·reservation·payment·assistant)를 고른다. 화면(nginx) 주소의 `/api/docs`로도 열린다. 로그인이 필요한 API는 `POST /api/v1/auth/login`으로 받은 accessToken을 Authorize에 넣고 부른다. 좌석 조회·선점은 대기열에서 받은 입장 토큰을 `X-Entry-Token` 칸에 넣는다. 요청은 Gateway를 거치므로 인증·역할 검사가 화면과 같다. 내부 API(`/api/v1/internal/**`)는 문서에 없다. 구조와 이유는 [ADR 0062](../decisions/0062-swagger-ui-at-gateway.md)다.
+[Swagger UI](http://localhost:8080/api/docs)는 Gateway가 띄운다. 위쪽 드롭다운에서 서비스(user·reservation·payment·assistant)를 고른다. 화면(nginx) 주소의 `/api/docs`로도 열린다. 로그인이 필요한 API는 `POST /api/v1/auth/login`으로 받은 accessToken을 Authorize에 넣고 부른다. 좌석 조회·선점은 대기열에서 받은 입장 토큰을 `X-Entry-Token` 칸에 넣는다. 요청은 Gateway를 거치므로 인증·역할 검사가 화면과 같다. 내부 API(`/api/v1/internal/**`)는 문서에 없다. 구조와 이유는 [ADR 0063](../decisions/0063-swagger-ui-at-gateway.md)다.
 
 ## 관측성
 

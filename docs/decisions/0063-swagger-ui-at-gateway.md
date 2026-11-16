@@ -1,4 +1,4 @@
-# 0062. API 문서는 springdoc으로 서비스마다 만들고, Swagger UI는 Gateway의 /api/docs 한 곳에서 띄운다
+# 0063. API 문서는 springdoc으로 서비스마다 만들고, Swagger UI는 Gateway의 /api/docs 한 곳에서 띄운다
 
 - 상태: 채택 (ISE-295)
 - 날짜: 2026-11-16

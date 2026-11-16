@@ -41,18 +41,21 @@ import java.util.UUID;
 public class SeatHoldController {
     // Gateway가 검증한 입장 토큰의 jti를 넣고, 클라이언트가 보낸 같은 헤더는 지운다(contracts.md 1절, ADR 0053).
     // Note: 선택 헤더로 받는다. 배포 경로에서는 Gateway가 이 API 앞에서 입장 토큰을 요구해 늘 붙는다.
-    // 클라이언트가 넣을 값이 아니므로 API 문서에서는 숨긴다(ADR 0062)
+    // 클라이언트가 넣을 값이 아니므로 API 문서에서는 숨긴다(ADR 0063)
     static final String ENTRY_TOKEN_ID_HEADER = "X-Entry-Token-Id";
 
     private final SyncSeatHoldService syncService;
     private final AsyncSeatHoldService asyncService;
+    private final SeatHoldConcurrencyLimit concurrencyLimit;
     private final SeatHoldMode mode;
     private final SeatHoldMetrics metrics;
 
     public SeatHoldController(SyncSeatHoldService syncService, AsyncSeatHoldService asyncService,
-            @Value("${seat-hold.mode:sync}") String mode, SeatHoldMetrics metrics) {
+            SeatHoldConcurrencyLimit concurrencyLimit, @Value("${seat-hold.mode:sync}") String mode,
+            SeatHoldMetrics metrics) {
         this.syncService = syncService;
         this.asyncService = asyncService;
+        this.concurrencyLimit = concurrencyLimit;
         this.mode = SeatHoldMode.from(mode);
         this.metrics = metrics;
     }
@@ -85,7 +88,8 @@ public class SeatHoldController {
             @PathVariable Long scheduleId, @Valid @RequestBody AutoHoldRequest request) {
         try {
             var command = autoCommand(currentUserId, idempotencyKey, entryTokenJti, scheduleId, request);
-            var response = respond(syncService.holdAuto(command));
+            // 자동 배정도 커넥션을 쓰므로 같은 동시 처리 상한을 거친다(ADR 0062 결정 3)
+            var response = respond(syncService.holdAuto(command, concurrencyLimit::run));
             metrics.record(response.getStatusCode().value() == 201 ? Outcome.HELD : Outcome.ACCEPTED);
             return response;
         } catch (RuntimeException exception) {
@@ -124,9 +128,10 @@ public class SeatHoldController {
         var command = new HoldSeatsCommand(currentUserId, RequestIds.parse(idempotencyKey), scheduleId,
                 request.seatIds(), entryTokenJti);
         if (mode == SeatHoldMode.ASYNC) {
-            return accepted(asyncService.accept(command));
+            return accepted(asyncService.accept(command, concurrencyLimit::run));
         }
-        return respond(syncService.hold(command));
+        // 동기형은 자리를 트랜잭션 단계에서만 쥐고, 커밋 뒤 정리·서명은 자리를 돌려준 뒤에 한다(SyncSeatHoldService)
+        return respond(syncService.hold(command, concurrencyLimit::run));
     }
 
     private static ResponseEntity<SuccessResponse<?>> respond(SyncHoldOutcome outcome) {
