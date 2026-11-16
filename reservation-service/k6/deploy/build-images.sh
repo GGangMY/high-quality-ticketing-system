@@ -23,8 +23,13 @@ TAGS="${TAGS:-$IMAGE_TAGS}"
 echo "[images] 작업 폴더 $WORK, 태그: $TAGS"
 for tag in $TAGS; do
   commit="${IMAGE_COMMIT[$tag]}"
-  # 단계 커밋을 로컬 태그로 붙잡아 둔다. ISE-261 중간 커밋(l50·one)은 원격 브랜치를 지워 다른 참조가 없어 gc로 사라질 수 있다.
-  # 원격에는 올리지 않는다(팀 저장소에 측정용 태그를 늘리지 않는다)
+  # ISE-261 중간 커밋(l50·one)은 원격 브랜치를 지워 원격 태그 k6steps/l50·one으로만 남아 있다(2026-11-16 푸시).
+  # 다른 기기에서 처음 빌드하면 그 커밋이 없으므로 태그를 받아 온다
+  if ! git cat-file -e "$commit^{commit}" 2>/dev/null; then
+    echo "[images] $tag($commit): 커밋이 없어 원격 태그 k6steps/*를 받는다"
+    git fetch -q origin 'refs/tags/k6steps/*:refs/tags/k6steps/*'
+  fi
+  # 단계 커밋을 로컬 태그로 붙잡아 gc로 사라지지 않게 한다
   git tag -f "k6steps/$tag" "$commit" >/dev/null
   if [ "$(docker image inspect -f '{{index .Config.Labels "k6steps.commit"}}' "$IMAGE_REPO:$tag" 2>/dev/null)" = "$commit" ] && [ "${REBUILD:-0}" != 1 ]; then
     echo "[images] $tag($commit): 이미 있다. 다시 만들려면 REBUILD=1"

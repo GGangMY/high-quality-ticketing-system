@@ -1108,7 +1108,8 @@ P4b는 좌석 배치(구역·열·번호·등급·가격 15,000석)를 인스턴
 
 **실행 순서**
 ```bash
-# 1. 이미지(PC). 이미 있는 것은 건너뛴다. 단계 커밋은 로컬 태그 k6steps/<태그>로 붙잡는다
+# 1. 이미지(SSH 키가 있는 기기에서 만든다). 이미 있는 것은 건너뛴다. l50·one 커밋은 원격 태그 k6steps/l50·one에만 있어
+#    없으면 스크립트가 받아 온다. 단계 커밋은 로컬 태그 k6steps/<태그>로 붙잡는다
 bash reservation-service/k6/deploy/build-images.sh
 # 2. 측정 날: SSH 키가 등록된 기기에서. 팀 채널 시작 알림(약 5시간, main 머지 금지)
 SHIP=1 DEPLOY_SSH=iseonjwa bash reservation-service/k6/deploy/build-images.sh
