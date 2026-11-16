@@ -528,7 +528,7 @@ function FailureNote({
       ? `${wait}초 후 다시 질문해주세요.`
       : '잠시 후 다시 질문해주세요.'
     : title === '지금 상담을 이용할 수 없습니다'
-      ? '공연 상세의 "알아 두세요"에서 예매 안내를 볼 수 있습니다.'
+      ? '공연 상세의 "알아두세요"에서 예매 안내를 볼 수 있습니다.'
       : '다시 질문해주세요.'
   return (
     <div className="grid gap-1 rounded-[12px] bg-warning-50 px-3 py-2.5 type-caption text-warning-700">

@@ -340,7 +340,7 @@ describe('예매 문의 위젯', () => {
     expect(
       await within(conversation()).findByText('지금 상담을 이용할 수 없습니다'),
     ).toBeInTheDocument()
-    expect(within(conversation()).getByText(/알아 두세요/)).toBeInTheDocument()
+    expect(within(conversation()).getByText(/알아두세요/)).toBeInTheDocument()
     expect(within(conversation()).getByRole('button', { name: '다시 묻기' })).toBeInTheDocument()
   })
 
