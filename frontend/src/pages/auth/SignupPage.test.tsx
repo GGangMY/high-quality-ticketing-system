@@ -85,8 +85,8 @@ describe('SignupPage', () => {
 
     await fillSignup({})
 
-    expect(await screen.findByText('입력한 값을 확인해주세요')).toBeInTheDocument()
-    expect(screen.getByLabelText('닉네임')).toHaveAccessibleDescription('입력한 값을 확인해주세요')
+    expect(await screen.findByText('입력한 값을 확인해주세요.')).toBeInTheDocument()
+    expect(screen.getByLabelText('닉네임')).toHaveAccessibleDescription('입력한 값을 확인해주세요.')
     expect(screen.queryByText('must not be blank')).not.toBeInTheDocument()
   })
 

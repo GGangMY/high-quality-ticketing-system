@@ -60,7 +60,7 @@ export function PasswordChangePage() {
         setFailedOnce(true)
         form.setError(
           'currentPassword',
-          { type: 'server', message: `이메일 또는 ${currentLabel}를 확인해주세요` },
+          { type: 'server', message: `이메일 또는 ${currentLabel}를 확인해주세요.` },
           { shouldFocus: true },
         )
         return

@@ -327,7 +327,7 @@ describe('추첨 설정 화면', () => {
       await userEvent.click(screen.getByRole('button', { name: '추첨 설정' }))
 
       expect(
-        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다'),
+        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다.'),
       ).toBeInTheDocument()
       expect(readLotteryIdOfSchedule(scheduleId)).toBeNull()
     })
@@ -340,9 +340,7 @@ describe('추첨 설정 화면', () => {
       await userEvent.click(screen.getByRole('button', { name: '추첨 설정' }))
 
       expect(
-        await screen.findByText(
-          'VIP석이 부족합니다. 좌석 생성 여부와 추첨석 수 조정 가능 여부를 확인해주세요.',
-        ),
+        await screen.findByText('VIP석이 부족합니다. 좌석 생성 여부와 추첨석 수를 확인해주세요.'),
       ).toBeInTheDocument()
       expect(screen.getByLabelText('추첨석 수')).toHaveFocus()
       expect(readLotteryIdOfSchedule(scheduleId)).toBeNull()
@@ -625,7 +623,7 @@ describe('추첨 고치기 화면', () => {
       await userEvent.click(screen.getByRole('button', { name: '저장' }))
 
       expect(
-        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다'),
+        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다.'),
       ).toBeInTheDocument()
     })
 

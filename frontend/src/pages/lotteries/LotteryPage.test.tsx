@@ -625,7 +625,7 @@ describe('LotteryPage 응모하기', () => {
 
     await userEvent.click(await enterButton('1매 응모하기'))
 
-    expect(await screen.findByText('지금은 응모 기간이 아닙니다')).toBeInTheDocument()
+    expect(await screen.findByText('지금은 응모 기간이 아닙니다.')).toBeInTheDocument()
     await waitFor(() => expect(infoRequests).toHaveLength(2))
     // 키를 버렸으므로 다시 누르면 새 요청이다
     expect(screen.getByRole('button', { name: '1매 응모하기' })).toBeEnabled()

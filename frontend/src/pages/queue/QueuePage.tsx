@@ -207,7 +207,7 @@ function FailedMessage({
     <>
       <StateMessage
         tone={notice.tone === 'field' ? 'danger' : notice.tone}
-        title={title}
+        title={title.replace(/\.$/, '')}
         description={rest.length > 0 ? rest.join('. ').replace(/\.?$/, '.') : undefined}
         focus
       >

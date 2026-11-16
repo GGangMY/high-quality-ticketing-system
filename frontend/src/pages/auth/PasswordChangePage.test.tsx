@@ -92,7 +92,7 @@ describe('PasswordChangePage', () => {
     await fillPasswordChange('wrong-password', 'new-password-5678', DEMO_USER.email)
 
     const current = screen.getByLabelText('현재 비밀번호')
-    expect(await screen.findByText('이메일 또는 현재 비밀번호를 확인해주세요')).toBeInTheDocument()
+    expect(await screen.findByText('이메일 또는 현재 비밀번호를 확인해주세요.')).toBeInTheDocument()
     expect(current).toHaveFocus()
     expect(screen.getByText('비밀번호를 5번 틀리면 계정이 잠깁니다.')).toBeInTheDocument()
   })

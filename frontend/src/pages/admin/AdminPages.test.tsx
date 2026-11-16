@@ -111,7 +111,7 @@ describe('공연 등록', () => {
     await user.click(screen.getByRole('button', { name: '등록하기' }))
 
     expect(
-      await screen.findByText('공연이 등록되었습니다. 회차를 추가해주세요'),
+      await screen.findByText('공연이 등록되었습니다. 회차를 추가해주세요.'),
     ).toBeInTheDocument()
     const created = mockDb.concerts.find((concert) => concert.title === '새 공연')
     expect(created).toBeDefined()

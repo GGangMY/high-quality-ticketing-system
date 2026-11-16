@@ -203,8 +203,8 @@ export function RequestLogPanel() {
       </div>
 
       <p className="shrink-0 px-4 pt-3 pb-2 type-caption text-gray-500">
-        traceId를 누르면 Grafana 탭에 해당 요청의 로그가 열립니다. 그 탭을 옆 창에 두면 거기서
-        바뀝니다
+        traceId를 누르면 Grafana 탭에 해당 요청의 로그가 열립니다. 그 탭을 옆 창에 띄워 두면 누를
+        때마다 그 탭의 로그가 바뀝니다.
       </p>
 
       {entries.length === 0 ? (

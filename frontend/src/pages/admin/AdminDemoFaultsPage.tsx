@@ -138,7 +138,7 @@ export function AdminDemoFaultsPage() {
   function applyScenario(scenario: Scenario) {
     apply.mutate([scenario.rule], {
       onSuccess: () =>
-        toast.success(`${scenario.title}이 적용되었습니다. 이제 다른 탭에서 결제해 보세요`),
+        toast.success(`${scenario.title}이 적용되었습니다. 이제 다른 탭에서 결제해 보세요.`),
     })
   }
 

@@ -40,7 +40,7 @@ export function AdminConcertNewPage() {
     try {
       const { concertId } = await createConcert(toConcertInput(values))
       void queryClient.invalidateQueries({ queryKey: ['concerts'] })
-      toast('공연이 등록되었습니다. 회차를 추가해주세요')
+      toast('공연이 등록되었습니다. 회차를 추가해주세요.')
       // 등록 화면은 history에 남기지 않는다. 뒤로 가면 운영 첫 화면이다
       await navigate(adminConcertPath(concertId), { replace: true })
     } catch (error) {

@@ -120,7 +120,7 @@ describe('일반 예매 흐름', () => {
     const error = await rejectionOf(joinQueue(BEFORE_OPEN_SCHEDULE_ID))
 
     expect(error.code).toBe('SALE_NOT_OPEN')
-    expect(describeError(error).message).toBe('아직 오픈 전입니다')
+    expect(describeError(error).message).toBe('아직 오픈 전입니다.')
   })
 
   it('READY 전에 토큰을 요청하면 409 QUEUE_NOT_READY, 줄에 없으면 404 QUEUE_NOT_JOINED다', async () => {

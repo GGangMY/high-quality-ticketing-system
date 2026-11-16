@@ -54,7 +54,7 @@ const SIGN_IN_AGAIN: NoticeTemplate = {
 
 export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
   // 공통
-  VALIDATION_FAILED: { tone: 'field', message: '입력한 값을 확인해주세요' },
+  VALIDATION_FAILED: { tone: 'field', message: '입력한 값을 확인해주세요.' },
   // 401은 보통 보이지 않는다. 재발급 뒤 재시도하고, 재발급도 실패했을 때만 이 문구로 로그인 화면에 보낸다
   UNAUTHORIZED: SIGN_IN_AGAIN,
   TOKEN_EXPIRED: SIGN_IN_AGAIN,
@@ -76,7 +76,7 @@ export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
 
   // 회원
   EMAIL_DUPLICATED: { tone: 'field', message: '이미 가입된 이메일입니다. 로그인해주세요.' },
-  INVALID_CREDENTIALS: { tone: 'field', message: '이메일 또는 비밀번호를 확인해주세요' },
+  INVALID_CREDENTIALS: { tone: 'field', message: '이메일 또는 비밀번호를 확인해주세요.' },
   ACCOUNT_LOCKED: {
     tone: 'danger',
     message:
@@ -88,7 +88,7 @@ export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
   },
 
   // 대기열·입장
-  SALE_NOT_OPEN: { tone: 'info', message: '아직 오픈 전입니다' },
+  SALE_NOT_OPEN: { tone: 'info', message: '아직 오픈 전입니다.' },
   QUEUE_NOT_JOINED: {
     tone: 'warning',
     message: '입장 시간이 지나 대기열에서 제외되었습니다. 대기열에 다시 입장해주세요.',
@@ -100,7 +100,7 @@ export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
   },
 
   // 좌석 선점·예매
-  SEAT_COUNT_MISMATCH: { tone: 'warning', message: '좌석은 1~4석을 겹치지 않게 선택해주세요' },
+  SEAT_COUNT_MISMATCH: { tone: 'warning', message: '좌석은 1~4석을 겹치지 않게 선택해주세요.' },
   // 서비스 이름과 같은 문장이라 발표에서 설계 의도가 보인다(design-system.md 9절 1번)
   SEAT_ALREADY_HELD: {
     tone: 'warning',
@@ -111,12 +111,12 @@ export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
     message: '이 회차의 구매 가능 매수를 초과했습니다. 내 예매를 확인해주세요.',
   },
   RESERVATION_NOT_PAYABLE: PAYMENT_TIME_OVER,
-  RESERVATION_NOT_CANCELABLE: { tone: 'warning', message: '지금은 취소할 수 없는 예매입니다' },
+  RESERVATION_NOT_CANCELABLE: { tone: 'warning', message: '지금은 취소할 수 없는 예매입니다.' },
   LOTTERY_RESERVATION_NOT_CANCELABLE: {
     tone: 'warning',
-    message: '추첨으로 배정된 예매는 취소할 수 없습니다',
+    message: '추첨으로 배정된 예매는 취소할 수 없습니다.',
   },
-  CANCEL_PERIOD_ENDED: { tone: 'warning', message: '공연이 시작되어 취소할 수 없습니다' },
+  CANCEL_PERIOD_ENDED: { tone: 'warning', message: '공연이 시작되어 취소할 수 없습니다.' },
 
   // 결제
   PAYMENT_TOKEN_INVALID: PAYMENT_TIME_OVER,
@@ -136,7 +136,7 @@ export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
   },
 
   // 추첨
-  LOTTERY_NOT_OPEN: { tone: 'info', message: '지금은 응모 기간이 아닙니다' },
+  LOTTERY_NOT_OPEN: { tone: 'info', message: '지금은 응모 기간이 아닙니다.' },
   LOTTERY_ALREADY_ENTERED: {
     tone: 'info',
     message: '이미 응모하셨습니다. 결과 발표를 기다려주세요.',
@@ -145,17 +145,17 @@ export const ERROR_NOTICES: Readonly<Record<string, NoticeTemplate>> = {
     tone: 'warning',
     message: '카드 등록을 너무 자주 시도했습니다. 잠시 후 다시 시도해주세요.',
   },
-  BILLING_KEY_REQUIRED: { tone: 'warning', message: '자동결제 카드를 먼저 등록해주세요' },
+  BILLING_KEY_REQUIRED: { tone: 'warning', message: '자동결제 카드를 먼저 등록해주세요.' },
 
   // 운영자
-  SCHEDULE_SEATS_ALREADY_CREATED: { tone: 'warning', message: '이미 좌석이 생성된 회차입니다' },
+  SCHEDULE_SEATS_ALREADY_CREATED: { tone: 'warning', message: '이미 좌석이 생성된 회차입니다.' },
   LOTTERY_ALREADY_EXISTS: {
     tone: 'warning',
     message: '이 회차에는 이미 추첨이 있습니다. 회차마다 추첨은 하나만 설정할 수 있습니다.',
   },
   LOTTERY_SETUP_CLOSED: {
     tone: 'warning',
-    message: '예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다',
+    message: '예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다.',
   },
   LOTTERY_SEATS_NOT_ENOUGH: {
     tone: 'warning',

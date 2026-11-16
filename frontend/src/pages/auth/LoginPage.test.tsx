@@ -48,11 +48,11 @@ describe('LoginPage', () => {
     await fillLogin(DEMO_USER.email, 'wrong-password')
 
     const password = screen.getByLabelText('비밀번호')
-    expect(await screen.findByText('이메일 또는 비밀번호를 확인해주세요')).toBeInTheDocument()
+    expect(await screen.findByText('이메일 또는 비밀번호를 확인해주세요.')).toBeInTheDocument()
     expect(password).toHaveAttribute('aria-invalid', 'true')
     expect(password).toHaveFocus()
     expect(password).toHaveAccessibleDescription(
-      '이메일 또는 비밀번호를 확인해주세요 비밀번호를 5번 틀리면 계정이 잠깁니다.',
+      '이메일 또는 비밀번호를 확인해주세요. 비밀번호를 5번 틀리면 계정이 잠깁니다.',
     )
   })
 
@@ -132,7 +132,7 @@ describe('LoginPage', () => {
     // 한 번 제출한 뒤에는 칸 아래 안내에 집중하도록 숨긴다
     await fillLogin(DEMO_USER.email, 'wrong-password')
 
-    expect(await screen.findByText('이메일 또는 비밀번호를 확인해주세요')).toBeInTheDocument()
+    expect(await screen.findByText('이메일 또는 비밀번호를 확인해주세요.')).toBeInTheDocument()
     expect(
       screen.queryByText('로그인이 만료되었습니다. 다시 로그인해주세요.'),
     ).not.toBeInTheDocument()

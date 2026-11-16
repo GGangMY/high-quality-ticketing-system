@@ -82,7 +82,7 @@ export function SignupPage() {
       description="서비스 이용을 위한 이메일과 비밀번호를 정해주세요."
       footer={
         <AuthFooterLine>
-          이미 회원이에요?
+          이미 회원이신가요?
           <AuthFooterLink to={paths.login} state={loginState}>
             로그인
           </AuthFooterLink>

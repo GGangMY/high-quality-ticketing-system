@@ -192,7 +192,7 @@ function LotteryCreateForm({
         form.setError(
           'seatCount',
           {
-            message: `${values.sourceGrade}석이 부족합니다. 좌석 생성 여부와 추첨석 수 조정 가능 여부를 확인해주세요.`,
+            message: `${values.sourceGrade}석이 부족합니다. 좌석 생성 여부와 추첨석 수를 확인해주세요.`,
           },
           { shouldFocus: true },
         )

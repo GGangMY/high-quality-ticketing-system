@@ -751,8 +751,8 @@ describe('ReservationPage 예매 취소', () => {
   })
 
   it.each([
-    ['CANCEL_PERIOD_ENDED', '공연이 시작되어 취소할 수 없습니다'],
-    ['LOTTERY_RESERVATION_NOT_CANCELABLE', '추첨으로 배정된 예매는 취소할 수 없습니다'],
+    ['CANCEL_PERIOD_ENDED', '공연이 시작되어 취소할 수 없습니다.'],
+    ['LOTTERY_RESERVATION_NOT_CANCELABLE', '추첨으로 배정된 예매는 취소할 수 없습니다.'],
   ])('서버가 %s로 거절하면 대화상자에 이유를 보이고 예매는 그대로다', async (code, message) => {
     const { reservation } = seedConfirmedWithPayment()
     mockServer.use(
@@ -780,7 +780,9 @@ describe('ReservationPage 예매 취소', () => {
     const dialog = await openCancelDialog()
     await userEvent.click(dialog.getByRole('button', { name: '예매 취소' }))
 
-    expect(await dialog.findByText('추첨으로 배정된 예매는 취소할 수 없습니다')).toBeInTheDocument()
+    expect(
+      await dialog.findByText('추첨으로 배정된 예매는 취소할 수 없습니다.'),
+    ).toBeInTheDocument()
   })
 
   it('결과를 모르면(504) 확인하지 못했다고 알리고, 다시 누르면 같은 멱등키로 보내 취소를 확인한다', async () => {
@@ -880,14 +882,14 @@ describe('ReservationPage 예매 취소', () => {
     const { reservation } = seedConfirmedWithPayment()
     mockServer.use(
       http.post(`/api/v1/reservations/${reservation.reservationId}/cancel`, () =>
-        fail(409, 'CANCEL_PERIOD_ENDED', '공연이 시작되어 취소할 수 없습니다'),
+        fail(409, 'CANCEL_PERIOD_ENDED', '공연이 시작되어 취소할 수 없습니다.'),
       ),
     )
     renderReservation(reservation.reservationId)
 
     const dialog = await openCancelDialog()
     await userEvent.click(dialog.getByRole('button', { name: '예매 취소' }))
-    expect(await dialog.findByText('공연이 시작되어 취소할 수 없습니다')).toBeInTheDocument()
+    expect(await dialog.findByText('공연이 시작되어 취소할 수 없습니다.')).toBeInTheDocument()
     expect(dialog.getByRole('button', { name: '예매 취소' })).toBeDisabled()
     await userEvent.click(dialog.getByRole('button', { name: '돌아가기' }))
 

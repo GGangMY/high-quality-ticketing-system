@@ -89,7 +89,7 @@ export function LoginPage() {
       footer={
         <>
           <AuthFooterLine>
-            아직 회원이 아니에요?
+            아직 회원이 아니신가요?
             <AuthFooterLink to={paths.signup} state={nextState}>
               회원가입
             </AuthFooterLink>
