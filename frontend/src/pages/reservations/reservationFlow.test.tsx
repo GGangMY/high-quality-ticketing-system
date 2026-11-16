@@ -69,7 +69,7 @@ describe('예매 흐름(좌석 → 결제 → 결과)', () => {
     }
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: '예매가 확정됐어요' }),
+      await screen.findByRole('heading', { level: 1, name: '예매가 확정되었습니다' }),
     ).toBeInTheDocument()
     const tickets = screen.getByRole('region', { name: '티켓 2매' })
     // 포스터 위 꾸밈 제목과 겹치지 않게 제목 줄(p)만 찾는다
