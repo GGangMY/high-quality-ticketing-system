@@ -42,6 +42,7 @@
 
 | 날짜 | 판단 대상 | 판단자 | AI | 판단 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-16 | 추첨 배정 워커 속도 상한으로 A안(주기당 성공 배정 상한 10, 시도 상한 100 유지)을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-16-lottery-assign-per-cycle-cap.md) |
 | 2026-11-16 | 배포 측정을 설정 덮어쓰기로 단계를 올리며 한 번에 끝내는 AI 안을 받아들이고, ISE-293(503)을 측정 전에 넣고 ISE-261 이전 코드 비교는 뒤로 미룸 | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-16-deploy-step-measurement-plan.md) |
 | 2026-11-16 | 접수형 장애 때 동기형으로 급히 되돌리는 비상 전환을 AI 추천대로 범위 밖으로 둠(ISE-255, ADR 0057 변경) | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-16-ise255-emergency-switch-out-of-scope.md) |
 | 2026-11-16 | 공개 Grafana를 "로그인 없이 볼 수 있다"고 쓴 AI의 브로셔 문장이 실제와 다르다고 지적함(원인은 권한이 아니라 메모리 상한 재시작, PR #700) | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-16-grafana-unauthorized-memory-not-viewer-account.md) |
