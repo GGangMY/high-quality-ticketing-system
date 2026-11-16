@@ -25,7 +25,7 @@ describe('MyInfoPage', () => {
     await renderRoutesReady(routes, '/me')
 
     expect(await screen.findByRole('heading', { name: '자동결제 카드' })).toBeInTheDocument()
-    expect(screen.getByText('이 브라우저에서 등록한 카드가 없어요')).toBeInTheDocument()
+    expect(screen.getByText('이 브라우저에 등록된 카드가 없습니다')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '카드 등록' })).toBeInTheDocument()
   })
 
@@ -44,7 +44,9 @@ describe('MyInfoPage', () => {
     mockDb.refreshTokens.set(42, 'mock-refresh.42.999')
     const { router } = await renderRoutesReady(routes, '/me')
 
-    expect(await screen.findByText('로그인이 끝났어요. 다시 로그인해 주세요')).toBeInTheDocument()
+    expect(
+      await screen.findByText('로그인이 만료되었습니다. 다시 로그인해주세요.'),
+    ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.state).toEqual({ from: '/me' })
     expect(sessionStore.getState().refreshToken).toBeNull()

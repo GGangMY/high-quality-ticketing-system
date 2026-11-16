@@ -152,8 +152,11 @@ describe('QueuePage', () => {
   it('없는 회차면 다시 시도 없이 공연 목록으로 돌아가게 한다', async () => {
     await renderRoutesReady(routes, '/schedules/999/queue')
 
-    expect(await screen.findByRole('heading', { name: '찾는 정보가 없어요' })).toBeInTheDocument()
-    expect(screen.getByText('목록에서 다시 골라 주세요.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '찾는 정보가 없습니다' })).toBeInTheDocument()
+    // 메시지가 이미 마침표로 끝나면 설명에 마침표를 더 붙이지 않는다
+    const description = screen.getByText('목록에서 다시 선택해주세요.')
+    expect(description).toBeInTheDocument()
+    expect(description).not.toHaveTextContent('..')
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '공연 목록으로' })).toHaveAttribute('href', '/')
   })
@@ -188,7 +191,7 @@ describe('QueuePage', () => {
     const joins = recordRequests(JOIN_API)
     await renderRoutesReady(routes, QUEUE_PATH)
 
-    expect(await screen.findByRole('heading', { name: '문제가 생겼어요' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '문제가 발생했습니다' })).toBeInTheDocument()
     expect(screen.getByText('문의 번호 trace-queue-1')).toBeInTheDocument()
     expect(joins).toHaveLength(1)
 

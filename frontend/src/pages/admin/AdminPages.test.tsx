@@ -15,7 +15,7 @@ const UNKNOWN_OUTCOME_FAILURE = {
   traceId: '0'.repeat(32),
 }
 
-const NOT_ADMIN_NOTICE = '운영자만 볼 수 있는 화면이에요'
+const NOT_ADMIN_NOTICE = '운영자만 볼 수 있는 화면입니다'
 
 // 운영 API(POST /api/v1/admin/...)로 나간 요청을 모두 모은다
 function recordAdminPosts(): string[] {
@@ -96,7 +96,7 @@ describe('공연 등록', () => {
 
     await user.click(await screen.findByRole('button', { name: '등록하기' }))
 
-    expect(await screen.findByText('공연 제목을 입력해 주세요')).toBeInTheDocument()
+    expect(await screen.findByText('공연 제목을 입력해주세요.')).toBeInTheDocument()
     expect(adminPosts).toEqual([])
   })
 
@@ -176,7 +176,7 @@ describe('회차 추가', () => {
       openAt: '2026-12-21T19:00',
     })
 
-    expect(await screen.findByText('오픈 시각은 공연 시작보다 앞서야 해요')).toBeInTheDocument()
+    expect(await screen.findByText('오픈 시각은 공연 시작보다 앞서야 합니다.')).toBeInTheDocument()
     expect(adminPosts).toEqual([])
   })
 
@@ -353,7 +353,7 @@ describe('좌석 만들기', () => {
     await user.click(within(dialog).getByRole('button', { name: '좌석 만들기' }))
 
     expect(
-      await within(dialog).findByText('적어도 한 등급의 가격을 입력해 주세요'),
+      await within(dialog).findByText('적어도 한 등급의 가격을 입력해주세요.'),
     ).toBeInTheDocument()
     expect(adminPosts).toEqual([])
   })
@@ -366,7 +366,7 @@ describe('좌석 만들기', () => {
     await user.click(within(dialog).getByRole('button', { name: '좌석 만들기' }))
 
     expect(
-      await within(dialog).findByText('적어도 한 등급의 가격을 입력해 주세요'),
+      await within(dialog).findByText('적어도 한 등급의 가격을 입력해주세요.'),
     ).toBeInTheDocument()
     expect(within(dialog).getByLabelText('VIP석 가격(원)')).not.toHaveAttribute('aria-invalid')
   })

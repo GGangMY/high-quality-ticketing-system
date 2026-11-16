@@ -39,7 +39,7 @@ describe('시연 장애 패널', () => {
     await signInAsDemo()
     renderRoutes(routes, PATH)
 
-    expect(await screen.findByText('운영자만 볼 수 있는 화면이에요')).toBeInTheDocument()
+    expect(await screen.findByText('운영자만 볼 수 있는 화면입니다')).toBeInTheDocument()
   })
 
   it('시나리오를 걸면 다음 결제 1건에만 걸고, 걸린 장애에 보인다', async () => {

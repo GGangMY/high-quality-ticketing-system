@@ -206,7 +206,7 @@ function FailedMessage({
       <StateMessage
         tone={notice.tone === 'field' ? 'danger' : notice.tone}
         title={title}
-        description={rest.length > 0 ? `${rest.join('. ')}.` : undefined}
+        description={rest.length > 0 ? rest.join('. ').replace(/\.?$/, '.') : undefined}
         focus
       >
         {notice.traceId !== null ? (

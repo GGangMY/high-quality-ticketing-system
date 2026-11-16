@@ -554,7 +554,7 @@ describe('LotteryPage 응모하기', () => {
     renderLottery()
 
     await userEvent.click(await enterButton('1매 응모하기'))
-    expect(await screen.findByText(/문제가 생겼어요/)).toBeInTheDocument()
+    expect(await screen.findByText(/문제가 발생했습니다/)).toBeInTheDocument()
     // 매수는 잠기지 않는다
     expect(screen.getByRole('radio', { name: '2매' })).toBeEnabled()
     await userEvent.click(screen.getByRole('radio', { name: '2매' }))
@@ -583,7 +583,7 @@ describe('LotteryPage 응모하기', () => {
     renderLottery()
 
     await userEvent.click(await enterButton('1매 응모하기'))
-    await screen.findByText(/문제가 생겼어요/)
+    await screen.findByText(/문제가 발생했습니다/)
     await userEvent.click(screen.getByRole('button', { name: '1매 응모하기' }))
 
     await screen.findByRole('heading', { level: 2, name: '응모했어요' })
@@ -613,7 +613,7 @@ describe('LotteryPage 응모하기', () => {
 
     await userEvent.click(await enterButton('1매 응모하기'))
 
-    expect(await screen.findByText('지금은 응모 기간이 아니에요')).toBeInTheDocument()
+    expect(await screen.findByText('지금은 응모 기간이 아닙니다')).toBeInTheDocument()
     await waitFor(() => expect(infoRequests).toHaveLength(2))
     // 키를 버렸으므로 다시 누르면 새 요청이다
     expect(screen.getByRole('button', { name: '1매 응모하기' })).toBeEnabled()

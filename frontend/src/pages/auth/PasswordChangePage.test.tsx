@@ -64,13 +64,13 @@ describe('PasswordChangePage', () => {
     await renderRoutesReady(routes, '/password-change')
     await fillPasswordChange(DEMO_USER.password, DEMO_USER.password, DEMO_USER.email)
     expect(
-      await screen.findByText('현재 비밀번호와 다른 비밀번호를 입력해 주세요'),
+      await screen.findByText('현재 비밀번호와 다른 비밀번호를 입력해주세요.'),
     ).toBeInTheDocument()
 
     await userEvent.type(screen.getByLabelText('현재 비밀번호'), '0')
 
     expect(
-      screen.queryByText('현재 비밀번호와 다른 비밀번호를 입력해 주세요'),
+      screen.queryByText('현재 비밀번호와 다른 비밀번호를 입력해주세요.'),
     ).not.toBeInTheDocument()
   })
 
@@ -81,7 +81,7 @@ describe('PasswordChangePage', () => {
     await fillPasswordChange(DEMO_USER.password, DEMO_USER.password, DEMO_USER.email)
 
     expect(
-      await screen.findByText('현재 비밀번호와 다른 비밀번호를 입력해 주세요'),
+      await screen.findByText('현재 비밀번호와 다른 비밀번호를 입력해주세요.'),
     ).toBeInTheDocument()
     expect(changeRequests).toHaveLength(0)
   })
@@ -106,7 +106,7 @@ describe('PasswordChangePage', () => {
 
     await fillPasswordChange(DEMO_USER.password, 'new-password-5678', DEMO_USER.email)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('계정이 잠겼어요')
+    expect(await screen.findByRole('alert')).toHaveTextContent('계정이 잠겼습니다')
   })
 
   it('로그인 전이면 로그인 링크를 보인다', async () => {

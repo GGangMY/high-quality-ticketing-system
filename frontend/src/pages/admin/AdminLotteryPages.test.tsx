@@ -24,7 +24,7 @@ import {
 import { renderRoutes } from '@/test/render'
 
 const CONCERT_ID = 7
-const NOT_ADMIN_NOTICE = '운영자만 볼 수 있는 화면이에요'
+const NOT_ADMIN_NOTICE = '운영자만 볼 수 있는 화면입니다'
 
 // 전역 setup은 sessionStorage만 비운다
 afterEach(() => {
@@ -194,12 +194,12 @@ describe('추첨 설정 화면', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '추첨 설정' }))
 
-    expect(await screen.findByText('추첨석으로 뗄 등급을 골라 주세요')).toBeInTheDocument()
-    expect(screen.getByText('추첨석 수를 입력해 주세요')).toBeInTheDocument()
-    expect(screen.getByText('예비 순번 수를 입력해 주세요')).toBeInTheDocument()
-    expect(screen.getByText('응모 시작 시각을 입력해 주세요')).toBeInTheDocument()
-    expect(screen.getByText('응모 마감 시각을 입력해 주세요')).toBeInTheDocument()
-    expect(screen.getByText('추첨 시각을 입력해 주세요')).toBeInTheDocument()
+    expect(await screen.findByText('추첨석으로 배정할 등급을 선택해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('추첨석 수를 입력해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('예비 순번 수를 입력해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('응모 시작 시각을 입력해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('응모 마감 시각을 입력해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('추첨 시각을 입력해주세요.')).toBeInTheDocument()
     expect(requests).toHaveLength(0)
   })
 
@@ -213,10 +213,10 @@ describe('추첨 설정 화면', () => {
     setValue('추첨 시각', kstLocal(now + 31 * DAY))
     await userEvent.click(screen.getByRole('button', { name: '추첨 설정' }))
 
-    expect(await screen.findByText(/응모 시작은 지금보다 뒤여야 해요/)).toBeInTheDocument()
-    expect(screen.getByText('응모 마감은 응모 시작보다 뒤여야 해요')).toBeInTheDocument()
+    expect(await screen.findByText(/응모 시작은 지금보다 뒤여야 합니다/)).toBeInTheDocument()
+    expect(screen.getByText('응모 마감은 응모 시작보다 뒤여야 합니다.')).toBeInTheDocument()
     expect(
-      screen.getByText('추첨은 공연 시작 1시간 전까지여야 해요(배정·자동결제 시간)'),
+      screen.getByText('추첨은 공연 시작 1시간 전까지여야 합니다(배정·자동결제 시간).'),
     ).toBeInTheDocument()
   })
 
@@ -327,7 +327,7 @@ describe('추첨 설정 화면', () => {
       await userEvent.click(screen.getByRole('button', { name: '추첨 설정' }))
 
       expect(
-        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 바꿀 수 없어요'),
+        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다'),
       ).toBeInTheDocument()
       expect(readLotteryIdOfSchedule(scheduleId)).toBeNull()
     })
@@ -597,7 +597,7 @@ describe('추첨 고치기 화면', () => {
     setValue('추첨석 수', '0')
     await userEvent.click(screen.getByRole('button', { name: '저장' }))
 
-    expect(await screen.findByText('추첨석 수는 1 이상으로 입력해 주세요')).toBeInTheDocument()
+    expect(await screen.findByText('추첨석 수는 1 이상으로 입력해주세요.')).toBeInTheDocument()
     expect(patchesOf(requests)).toHaveLength(0)
   })
 
@@ -623,7 +623,7 @@ describe('추첨 고치기 화면', () => {
       await userEvent.click(screen.getByRole('button', { name: '저장' }))
 
       expect(
-        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 바꿀 수 없어요'),
+        await screen.findByText('예매 오픈이나 응모 시작이 지나 추첨 설정을 변경할 수 없습니다'),
       ).toBeInTheDocument()
     })
 
@@ -704,7 +704,7 @@ describe('추첨 고치기 화면: 기록과 시각 비교', () => {
     setValue('추첨 시각', kstLocal(base))
     await userEvent.click(screen.getByRole('button', { name: '저장' }))
 
-    expect(await screen.findByText('추첨은 응모 마감과 같거나 뒤여야 해요')).toBeInTheDocument()
+    expect(await screen.findByText('추첨은 응모 마감과 같거나 뒤여야 합니다.')).toBeInTheDocument()
     expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(0)
   })
 
@@ -734,7 +734,7 @@ describe('추첨 고치기 화면: 기록과 시각 비교', () => {
     setValue('추첨 시각', kstLocal(base))
     await userEvent.click(screen.getByRole('button', { name: '저장' }))
 
-    expect(await screen.findByText('추첨은 응모 마감과 같거나 뒤여야 해요')).toBeInTheDocument()
+    expect(await screen.findByText('추첨은 응모 마감과 같거나 뒤여야 합니다.')).toBeInTheDocument()
     expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(1)
   })
 })
@@ -855,7 +855,7 @@ describe('비밀번호 초기화 화면', () => {
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: '초기화' }))
 
-    expect(await within(dialog).findByText(/문제가 생겼어요/)).toBeInTheDocument()
+    expect(await within(dialog).findByText(/문제가 발생했습니다/)).toBeInTheDocument()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.queryByLabelText('임시 비밀번호')).not.toBeInTheDocument()
   })

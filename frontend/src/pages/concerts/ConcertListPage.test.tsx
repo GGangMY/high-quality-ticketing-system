@@ -217,7 +217,9 @@ describe('ConcertListPage', () => {
     )
     renderRoutes(routes, '/')
 
-    expect(await screen.findByText('요청이 많아요. 잠시 뒤 다시 시도해 주세요')).toBeInTheDocument()
+    expect(
+      await screen.findByText('요청이 많습니다. 잠시 후 다시 시도해주세요.'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
   })
 

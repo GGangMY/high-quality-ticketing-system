@@ -35,9 +35,9 @@ describe('LoginPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '로그인' }))
 
-    expect(await screen.findByText('이메일을 입력해 주세요')).toBeInTheDocument()
-    expect(screen.getByText('비밀번호를 입력해 주세요')).toBeInTheDocument()
-    expect(screen.getByLabelText('이메일')).toHaveAccessibleDescription('이메일을 입력해 주세요')
+    expect(await screen.findByText('이메일을 입력해주세요.')).toBeInTheDocument()
+    expect(screen.getByText('비밀번호를 입력해주세요.')).toBeInTheDocument()
+    expect(screen.getByLabelText('이메일')).toHaveAccessibleDescription('이메일을 입력해주세요.')
     expect(screen.getByLabelText('이메일')).toHaveFocus()
     expect(loginRequests).toHaveLength(0)
   })
@@ -48,11 +48,11 @@ describe('LoginPage', () => {
     await fillLogin(DEMO_USER.email, 'wrong-password')
 
     const password = screen.getByLabelText('비밀번호')
-    expect(await screen.findByText('이메일 또는 비밀번호를 확인해 주세요')).toBeInTheDocument()
+    expect(await screen.findByText('이메일 또는 비밀번호를 확인해주세요')).toBeInTheDocument()
     expect(password).toHaveAttribute('aria-invalid', 'true')
     expect(password).toHaveFocus()
     expect(password).toHaveAccessibleDescription(
-      '이메일 또는 비밀번호를 확인해 주세요 비밀번호를 5번 틀리면 계정이 잠겨요',
+      '이메일 또는 비밀번호를 확인해주세요 비밀번호를 5번 틀리면 계정이 잠겨요',
     )
   })
 
@@ -68,7 +68,7 @@ describe('LoginPage', () => {
     }
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('로그인을 여러 번 실패해 계정이 잠겼어요')
+    expect(alert).toHaveTextContent('로그인을 여러 번 실패하여 계정이 잠겼습니다')
     expect(alert).toHaveTextContent(
       '임시 비밀번호를 받으면 로그인할 때 새 비밀번호로 바꿀 수 있어요',
     )
@@ -78,7 +78,7 @@ describe('LoginPage', () => {
     await userEvent.type(password, DEMO_USER.password)
     await userEvent.click(screen.getByRole('button', { name: '로그인' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('계정이 잠겼어요')
+    expect(await screen.findByRole('alert')).toHaveTextContent('계정이 잠겼습니다')
     expect(sessionStore.getState().refreshToken).toBeNull()
   })
 
@@ -125,13 +125,17 @@ describe('LoginPage', () => {
     expireSession()
     await renderRoutesReady(routes, '/login')
 
-    expect(screen.getByRole('alert')).toHaveTextContent('로그인이 끝났어요. 다시 로그인해 주세요')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '로그인이 만료되었습니다. 다시 로그인해주세요.',
+    )
 
     // 한 번 제출한 뒤에는 칸 아래 안내에 집중하도록 숨긴다
     await fillLogin(DEMO_USER.email, 'wrong-password')
 
-    expect(await screen.findByText('이메일 또는 비밀번호를 확인해 주세요')).toBeInTheDocument()
-    expect(screen.queryByText('로그인이 끝났어요. 다시 로그인해 주세요')).not.toBeInTheDocument()
+    expect(await screen.findByText('이메일 또는 비밀번호를 확인해주세요')).toBeInTheDocument()
+    expect(
+      screen.queryByText('로그인이 만료되었습니다. 다시 로그인해주세요.'),
+    ).not.toBeInTheDocument()
   })
 
   it('이미 로그인했으면 처음 화면으로 보낸다', async () => {
