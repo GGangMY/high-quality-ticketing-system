@@ -40,6 +40,9 @@ KINDS="${KINDS:-H}"
 # H의 단계별 초당 도착 사용자 수. 사용자 하나가 409를 받으면 0.5~1초 뒤 최대 2번 더 보내므로 매진 뒤 선점 요청은 도착 수의 약 3배다
 H_STAGES="${H_STAGES:-10,20,40,80,160,320,640}"
 STAGE_SECONDS="${STAGE_SECONDS:-60}"
+# 접수형 단계. 선점 접수 토픽에 메시지가 흐르는 단계라, 부하 중 Kafka 토픽·컨슈머 그룹 상태를 서버에서 글로 남기고
+# 시작할 때 Kafka-UI 캡처 구간을 알린다(ISE-265)
+KAFKA_STEPS="${KAFKA_STEPS:-aout adir}"
 # 발생기 → Gateway 사설 주소. 공인 IP는 요금이 붙고 보안 그룹에도 맞지 않는다(loadgen.md "주소와 요금")
 TARGET="${TARGET:-http://172.31.4.93:8080}"
 # Note: S는 160명 단계까지만 올린다. 좌석 응답이 약 830KB라 발생기 네트워크 기준(1.562Gbps ≈ 초당 195MB)으로는
@@ -145,6 +148,11 @@ run_kind() {  # run_kind <단계> <L|S>
   [ "$DRY" = 1 ] && { warm=1; sid=2; }
   log "[$s-$kind] 측정 회차 $sid, 워밍업 회차 $warm"
   sampler="$(dssh "nohup bash $REMOTE_DIR/server/sampler.sh $sid $REMOTE_DIR/results/$name-stats.txt </dev/null >/dev/null 2>&1 & echo \$!")"
+  case " $KAFKA_STEPS " in *" $s "*)
+    # 부하 중간부터 30초 간격 3번. 결과는 이 회 이름으로 남아 아래 수집 때 같이 온다
+    dssh "nohup bash $REMOTE_DIR/server/kafka-snapshot.sh $REMOTE_DIR/results/$name-kafka.txt $(( WARMUP_SECONDS + load_seconds / 2 )) </dev/null >/dev/null 2>&1 &"
+    log "[$s-$kind] 지금부터 약 $(( (WARMUP_SECONDS + load_seconds) / 60 ))분이 Kafka-UI 캡처 구간이다(localhost:8085, 선점 접수 토픽과 컨슈머 그룹 랙)" ;;
+  esac
   log "[$s-$kind] k6 시작(발생기, $env_k6)"
   lssh "cd $LOADGEN_DIR && mkdir -p reservation-service/k6/results && nohup env $env_k6 SCHEDULE_ID=$sid WARMUP_SCHEDULE_ID=$warm \
     WARMUP_SECONDS=$WARMUP_SECONDS WARMUP_RATE=$WARMUP_RATE TOKEN_MODE=sign ENV_FILE=\$HOME/$LOADGEN_DIR/.env \
@@ -197,8 +205,16 @@ kind_minutes() {
     H) echo $(( (WARMUP_SECONDS + $(tr ',' '\n' <<< "$H_STAGES" | grep -c .) * STAGE_SECONDS + ${RECOVERY_SECONDS:-60} + 150) / 60 )) ;;
   esac
 }
-total=0; runs=0
-for s in $STEPS; do total=$(( total + 4 )); for kind in $KINDS; do total=$(( total + $(kind_minutes "$kind") )); runs=$(( runs + 1 )); done; done
+total=0; runs=0; now=$(date +%s)
+for s in $STEPS; do
+  for kind in $KINDS; do
+    # 접수형 단계는 부하 구간 예상 시각을 미리 알린다. 그 구간에 Kafka-UI(SSH 터널 localhost:8085)를 캡처한다(ISE-265)
+    case " $KAFKA_STEPS " in *" $s "*)
+      log "[$s-$kind] 부하 예상 $(date -d "@$(( now + (total + 4) * 60 + WARMUP_SECONDS + 120 ))" +%H:%M)~$(date -d "@$(( now + (total + 4 + $(kind_minutes "$kind")) * 60 - 120 ))" +%H:%M): Kafka-UI 캡처 구간" ;;
+    esac
+    total=$(( total + 4 + $(kind_minutes "$kind") )); runs=$(( runs + 1 ))
+  done
+done
 log "단계 $(wc -w <<< "$STEPS")개, 측정 $runs회, 예상 약 $(( total / 60 ))시간 $(( total % 60 ))분. 목록: $SESSION"
 
 for s in $STEPS; do
