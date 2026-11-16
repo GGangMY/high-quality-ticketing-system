@@ -36,6 +36,18 @@ SERIES = {
     "gw_in_flight": "sum(gateway_in_flight_requests)",
     "gw_in_flight_rejected_per_s": "sum(rate(gateway_in_flight_rejected_total[10s]))",
     "gw_auth_not_permitted_per_s": 'sum(rate(resilience4j_circuitbreaker_not_permitted_calls_total{name="auth-redis"}[10s]))',
+    # 서버가 본 선점 응답(상태별 초당 수)과 서버 안 처리 시간 p95. 버킷은 단계 덮어쓰기의 slo 값이다(모든 단계 같음)
+    "hold_201_per_s": f'sum(rate(http_server_requests_seconds_count{{{HOLD},status="201"}}[10s]))',
+    "hold_202_per_s": f'sum(rate(http_server_requests_seconds_count{{{HOLD},status="202"}}[10s]))',
+    "hold_409_per_s": f'sum(rate(http_server_requests_seconds_count{{{HOLD},status="409"}}[10s]))',
+    "hold_5xx_per_s": f'sum(rate(http_server_requests_seconds_count{{{HOLD},status=~"5.."}}[10s]))',
+    "hold_server_p95_ms": f"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{{{HOLD}}}[10s]))) * 1000",
+    # ISE-261 이후 이미지에만 있는 선점 내부 지표(대시보드 seathold.json 15~19번 패널과 같은 식). 없는 이미지는 0으로 남는다
+    "sh_limit_in_use": f"max(seathold_concurrency_in_use{{{APP}}})",
+    "sh_limit_rejected_per_s": f"sum(rate(seathold_concurrency_rejected_total{{{APP}}}[10s]))",
+    "sh_held_ms_avg": f"sum(rate(seathold_concurrency_held_seconds_sum{{{APP}}}[10s])) / sum(rate(seathold_concurrency_held_seconds_count{{{APP}}}[10s])) * 1000",
+    "sh_pre_rejected_per_s": f"sum(rate(seathold_pre_rejected_total{{{APP}}}[10s]))",
+    "sh_seat_lock_ms_avg": f"sum(rate(seathold_seat_lock_seconds_sum{{{APP}}}[10s])) / sum(rate(seathold_seat_lock_seconds_count{{{APP}}}[10s])) * 1000",
 }
 
 
@@ -56,12 +68,14 @@ def main():
     for name, expr in SERIES.items():
         for item in query("query_range", {"query": expr, "start": start, "end": end, "step": 10}):
             for ts, value in item["values"]:
-                columns.setdefault(int(float(ts)), {})[name] = float(value)
+                # 나눗셈 식은 요청이 없는 구간에서 NaN이다. 비워 둬서 평균에 섞이지 않게 한다
+                if value not in ("NaN", "+Inf", "-Inf"):
+                    columns.setdefault(int(float(ts)), {})[name] = float(value)
     with open(f"{prefix}-metrics.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "after_load_s", *SERIES])
         for ts in sorted(columns):
-            writer.writerow([ts, ts - load_end, *[round(columns[ts].get(n, 0.0), 2) for n in SERIES]])
+            writer.writerow([ts, ts - load_end, *[round(columns[ts][n], 2) if n in columns[ts] else "" for n in SERIES]])
 
     # 부하 시작부터 끝까지 서버가 끝낸 좌석 조회. 3초 경계 버킷으로 "버려진 일"(서버 안 3초 초과) 비율을 센다
     window = f"{end - start}s"

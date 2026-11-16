@@ -1,0 +1,17 @@
+# 배포 서버 단계 측정 cur 단계 덮어쓰기다. 측정 브랜치(experiment/ISE-79-k6-steps) 전용이고 저장소의 배포 설정은 바꾸지 않는다.
+# dev 11/16(#661·#662 머지). one에 캐시 사전 거절(ISE-281)과 그 사이 팀 변경(자동 배정, 시드 1,500석 등)이 더해짐. 동시 처리 상한은 끔
+# 이미지는 커밋 fafa1e42의 reservation-service를 build-images.sh로 만들어 서버에 넣은 것이다(GHCR에 없다).
+# deploy-run.sh가 서버에 복사해 measure-mode.sh on의 인자로 준다. 다른 서비스와 Gateway는 배포 그대로 둔다.
+# Note: 풀 크기·대기 시한과 선점 설정은 공유 설정(config-repo)이 바뀌어도 단계 값이 유지되게 못 박는다.
+# SPRING_APPLICATION_JSON은 config-repo보다 우선한다
+services:
+  reservation-service:
+    image: iseonjwa-k6steps/reservation-service:cur
+    # 서버에 넣어 둔 이미지만 쓴다. 없으면 받으러 가지 않고 실패한다
+    pull_policy: never
+    environment:
+      JAVA_TOOL_OPTIONS: -Xms384m -Xmx768m -XX:+UseG1GC -Xlog:gc,gc+heap=info:file=/tmp/gc.log:uptime
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: "5"
+      SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT: "1000"
+      # Tomcat 스레드 지표와 서버 처리 시간 경계 버킷(b8_metrics.py, deploy_report.py가 읽는다). 버킷은 모든 단계가 같고 지금 config-repo 값과 같다
+      SPRING_APPLICATION_JSON: '{"server":{"tomcat":{"mbeanregistry":{"enabled":true}}},"management":{"metrics":{"distribution":{"slo":{"http.server.requests":"25ms,50ms,100ms,200ms,300ms,500ms,1s,3s"}}}},"seat-hold":{"max-concurrent":0,"pre-reject":{"enabled":true},"mode":"sync"}}'

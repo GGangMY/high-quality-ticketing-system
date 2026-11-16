@@ -12,6 +12,6 @@ services:
       JAVA_TOOL_OPTIONS: -Xms384m -Xmx768m -XX:+UseG1GC -Xlog:gc,gc+heap=info:file=/tmp/gc.log:uptime
       SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: "10"
       SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT: "1000"
-      # Tomcat 스레드 지표와 1초·3초 경계 버킷(b8_metrics.py가 읽는다). 로컬 compose.b8-observe.yml과 같다
-      SPRING_APPLICATION_JSON: '{"server":{"tomcat":{"mbeanregistry":{"enabled":true}}},"management":{"metrics":{"distribution":{"slo":{"http.server.requests":"1s,3s"}}}}}'
+      # Tomcat 스레드 지표와 서버 처리 시간 경계 버킷(b8_metrics.py, deploy_report.py가 읽는다). 버킷은 모든 단계가 같고 지금 config-repo 값과 같다
+      SPRING_APPLICATION_JSON: '{"server":{"tomcat":{"mbeanregistry":{"enabled":true}}},"management":{"metrics":{"distribution":{"slo":{"http.server.requests":"25ms,50ms,100ms,200ms,300ms,500ms,1s,3s"}}}}}'
       SEATHOLD_PRECHECK_ENABLED: "true"

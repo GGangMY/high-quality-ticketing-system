@@ -1075,7 +1075,59 @@ P4b는 좌석 배치(구역·열·번호·등급·가격 15,000석)를 인스턴
 
 **다음 단계(K1):** L(초당 100명)은 아직 reservation-service가 먼저 막힌다(커넥션 대기 최대 197건, 대기 시한 초과 5,999건). 그래서 계획대로 P4c(좌석 상태 1초 캐시)로 간다. 다만 S는 160명부터 Gateway 인증 차단기가 먼저 막으므로, P4c의 효과는 L과 S의 80명까지에서 본다. Gateway 한계는 측정이 끝난 뒤 Gateway 담당과 조율할 거리(계획 문서 6절 13번)에 K1 근거로 더한다.
 
-## 배포 단계 측정 (2026-11-12 준비, 측정 전)
+## 배포 단계 측정 (2026-11-12 준비, 11/16 확장, 측정 전)
+
+### 11/16 확장: 좌석 선점 전 단계를 H 하나로 한 번에 재고 표까지 뽑기
+
+개선 전부터 ISE-261까지 좌석 선점 개선 단계를 배포 서버에서 한 번에 재고, 끝나면 단계 비교표를 자동으로 만든다(사용자 결정 2026-11-16: 전체 단계, 부하는 H만, 접수형·풀 비교도 같은 실행, 각 1회 + 끝에 base·cur 다시 재기).
+
+| 단계 | 이미지(커밋) | 바뀐 것 | 풀 | 대기 시한 |
+|---|---|---|---|---|
+| base~pre | 아래 표(11/12) | ISE-79 K1 단계 | 5 또는 10 | 30초 또는 1초 |
+| d1114 | `0f69c1aa` | ISE-261 직전 dev(11/14). 잠금 대기 500ms, 선점의 먼저 거절 없음, 좌석 조회 1초 캐시(ISE-205) | 5 | 1초 |
+| l50 | `1806af22` | 잠금 대기 50ms(ADR 0061), 먼저 거절·좌석 UPDATE를 끝으로(ADR 0062). 상한 끔 | 5 | 1초 |
+| one | `14cad0dd` | 성능 개선 반복 4: 한 문장 사전 판정(409 경로 DB 문장 6 → 2). 상한 끔 | 5 | 1초 |
+| cur | `fafa1e42` | dev 11/16: 캐시 사전 거절(ISE-281)과 그 사이 팀 변경. 상한 끔 | 5 | 1초 |
+| lim4 | cur | 동시 처리 상한 4(대기 200ms, 대기 인원 64) | 5 | 1초 |
+| pool8 | cur | 풀 8·상한 7(ISE-237 비교) | 8 | 1초 |
+| aout | cur | 접수형(202) + Outbox 발행(ISE-296 비교). 상한 끔 | 5 | 1초 |
+| adir | cur | 접수형(202) + 커밋 뒤 직접 발행(ISE-18). 상한 끔 | 5 | 1초 |
+
+- **부하 H(선점만, 단계 증가):** 초당 도착 사용자 10 → 20 → 40 → 80 → 160 → 320 → 640, 단계마다 60초, 회복 60초(`H_STAGES`, `STAGE_SECONDS`, `RECOVERY_SECONDS`로 바꾼다). 측정 시작 때 받은 좌석 목록에서 골라 선점만 보낸다. 시드가 1,500석(dev ADR 0060)이라 몇 초 만에 매진되고, 그 뒤는 대부분 409다. 이번 개선 대상인 409 경로와 처리 한계가 그대로 드러난다. L·S는 매번 좌석을 조회해서 매진 뒤에는 선점을 거의 보내지 않는다.
+- **표:** 끝나면 `tools/deploy_report.py`가 `results/deploy-report-<시각>.md`(요약, 부하 단계별 사용자 오류율·p95·처리량·503 비율·자리 쥐는 시간·접수형 완료 시간, 회별 서버 지표)와 같은 이름의 `.csv`(그래프용)를 만든다. 사용자 오류는 마지막 응답이 201·409가 아닌 사용자(로컬 L9의 "의도 실패"와 같은 뜻), 처리 한계 단계는 오류율 1% 미만·p95 1초 미만을 지킨 가장 높은 단계다.
+- **서버 지표:** `b8_metrics.py`에 선점 상태별 초당 수, 서버 선점 p95, 상한 자리·거절·자리 쥐는 시간, 캐시 사전 거절, 좌석 잠금 시간을 더했다. ISE-261 전 이미지에는 선점 내부 지표가 없어 빈칸이다. 서버 처리 시간 버킷은 모든 단계에서 config-repo와 같은 25ms~3s로 맞췄다.
+- **실패해도 계속:** 한 단계가 실패하면(이미지 없음, Gateway 미응답 등) 목록에 `FAILED`로 남기고 다음 단계로 간다. `STOP_ON_FAIL=1`이면 멈춘다.
+- **예상 시간:** 18회 약 4시간 30분(`DRY_RUN=1`이 계산한다). 단계 전환마다 측정 모드를 다시 켜 슬랙 측정 채널에 "설정 변경" 알림이 18번 간다.
+
+**해석할 때 주의**
+- **pre → d1114는 개선이 아니라 갈래가 바뀌는 곳이다.** pre의 사전 거절은 측정 브랜치 코드라 dev에 없고, 풀도 10 → 5로 바뀐다. ISE-79 줄(base~pre)과 ISE-261 줄(d1114~cur)은 각각 안에서 비교한다.
+- **p4a·p4b·p4c는 좌석 조회 개선이라 H에서는 거의 보이지 않는다.** 필요하면 `STEPS="p4a p4b p4c" KINDS=S`로 따로 잰다(S는 1,500석이라 매진 뒤 조회만 남는다).
+- **공유 설정은 모든 이미지에 같이 걸린다.** 지금 config-repo의 만료 주기 1초, 소비자 잠금 시한 50ms는 그 설정을 읽는 옛 이미지에도 적용된다. 풀·대기 시한·선점 설정만 단계마다 못 박았다.
+- **옛 이미지와 지금 DB:** 11/12 뒤에 더해진 예약 DB 열(`entry_token_jti`, `auto_criteria`)은 NULL 허용이라 옛 코드가 넣지 않아도 된다(코드로 확인). 실제로 뜨는지는 리허설에서 확인한다.
+- k6 입장 토큰 서명은 dev의 `k1-seathold.js`와 같다. 지금 코드는 선점 성공 때 대기열 issued를 지우기만 해서 서명 토큰으로 선점할 수 있다.
+
+**실행 순서**
+```bash
+# 1. 이미지(PC). 이미 있는 것은 건너뛴다. 단계 커밋은 로컬 태그 k6steps/<태그>로 붙잡는다
+bash reservation-service/k6/deploy/build-images.sh
+# 2. 측정 날: SSH 키가 등록된 기기에서. 팀 채널 시작 알림(약 5시간, main 머지 금지)
+SHIP=1 DEPLOY_SSH=iseonjwa bash reservation-service/k6/deploy/build-images.sh
+# 3. 리허설(약 21분): 가장 옛 이미지(base), 지금 이미지(cur), 접수형(aout, Kafka 경로)이 뜨는지와 서버 스크립트·수집·표를 짧게 확인.
+#    나머지 이미지가 뜨는지는 본 측정에서 본다(실패한 단계는 FAILED로 남고 다음 단계로 간다)
+MEASURER=kwonwoo DEPLOY_SSH=iseonjwa LOADGEN_SSH=ubuntu@<발생기 IP> OFF_AT_END=0 \
+  H_STAGES=5 STAGE_SECONDS=20 WARMUP_SECONDS=10 RECOVERY_SECONDS=0 \
+  STEPS="base cur aout" bash reservation-service/k6/deploy/deploy-run.sh
+# 4. 본 측정(약 4시간 30분). 끝나면 측정 모드 끔·발생기 키 삭제·표 만들기까지 자동
+MEASURER=kwonwoo DEPLOY_SSH=iseonjwa LOADGEN_SSH=ubuntu@<발생기 IP> bash reservation-service/k6/deploy/deploy-run.sh
+# 표만 다시: python reservation-service/k6/tools/deploy_report.py reservation-service/k6/results/deploy-session-<시각>.txt [p95 ms] [오류율 %]
+```
+
+**확인한 것(11/16, 서버 없이)**
+- `DRY_RUN=1`로 18회 순서(base … adir, base, cur)와 예상 시간.
+- 합친 `k1-seathold.js`를 k6 1.0.0 `inspect`로 H ramp 옵션 확인. 가짜 서버(동기형 201·409·503, 접수형 202 → 폴링)에 H를 짧게 돌리고 deploy-run.sh와 같은 방식으로 meta를 만들어 `deploy_report.py`가 표(접수형 완료 p95 포함)를 만드는지 확인.
+- 단계 커밋마다 설정 이름이 있는지(`seat-hold.max-concurrent`, `pre-reject.enabled`, `async.publish`)와 잠금 대기 상수(d1114 500ms, l50부터 50ms)를 커밋에서 확인.
+
+이 아래는 11/12 준비 내용이다.
 
 local에서 쌓은 K1 단계를 배포 서버(m7i.xlarge 4 vCPU·16GiB, 컨테이너 20개가 CPU 상한 없이 나눠 씀)에서 한 번에 다시 잰다. 단계 범위는 base → G1 → R1 → P4a → P4b → P4c → F → 사전 거절(pre) 8개이고, Gateway는 배포 그대로 둔다(ADR 0050 운영값, 맨 앞 동시 처리 상한 64, 직접 메모리 상한 128MB). 측정 모드는 팀 절차(`script/loadtest/measure-mode.sh`, `docs/guides/loadgen.md`)를 따른다.
 

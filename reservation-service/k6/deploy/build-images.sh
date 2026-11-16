@@ -2,7 +2,7 @@
 # 배포 서버 단계 측정용 reservation-service 이미지를 단계 커밋마다 만들고, 원하면 배포 서버에 넣는다.
 # 측정 브랜치(experiment/ISE-79-k6-steps) 전용이다. GHCR에는 올리지 않는다(main 릴리스 이미지만 올라가는 저장소다).
 # 사용(워크트리 루트, Git Bash):
-#   bash reservation-service/k6/deploy/build-images.sh                    # 이미지 6개를 로컬에 만든다
+#   bash reservation-service/k6/deploy/build-images.sh                    # steps.sh IMAGE_TAGS의 이미지를 로컬에 만든다(이미 있으면 건너뜀)
 #   SHIP=1 DEPLOY_SSH=iseonjwa bash reservation-service/k6/deploy/build-images.sh   # 만든 뒤 배포 서버에 docker load
 # 결과 이미지: iseonjwa-k6steps/reservation-service:<태그>(steps.sh의 IMAGE_COMMIT), 라벨 k6steps.commit=<커밋>
 #
@@ -23,6 +23,9 @@ TAGS="${TAGS:-$IMAGE_TAGS}"
 echo "[images] 작업 폴더 $WORK, 태그: $TAGS"
 for tag in $TAGS; do
   commit="${IMAGE_COMMIT[$tag]}"
+  # 단계 커밋을 로컬 태그로 붙잡아 둔다. ISE-261 중간 커밋(l50·one)은 원격 브랜치를 지워 다른 참조가 없어 gc로 사라질 수 있다.
+  # 원격에는 올리지 않는다(팀 저장소에 측정용 태그를 늘리지 않는다)
+  git tag -f "k6steps/$tag" "$commit" >/dev/null
   if [ "$(docker image inspect -f '{{index .Config.Labels "k6steps.commit"}}' "$IMAGE_REPO:$tag" 2>/dev/null)" = "$commit" ] && [ "${REBUILD:-0}" != 1 ]; then
     echo "[images] $tag($commit): 이미 있다. 다시 만들려면 REBUILD=1"
     continue

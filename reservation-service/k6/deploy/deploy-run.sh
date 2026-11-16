@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# 배포 서버에서 K1 단계(base → G1 → R1 → P4a → P4b → P4c → F → 사전 거절)를 한 번에 잰다. 측정 브랜치 전용이다.
+# 배포 서버에서 좌석 선점 단계(steps.sh의 STEP_ORDER: ISE-79 K1 단계 → ISE-261 개선 → 상한·풀·접수형 비교)를 한 번에 재고,
+# 끝나면 tools/deploy_report.py로 단계 비교표를 만든다. 측정 브랜치 전용이다.
 # 내 PC(Git Bash)에서 돌리고, 배포 서버와 발생기에 SSH로 명령을 보낸다. 발생기는 배포 서버에 SSH로 들어갈 수 없어서다
 # (배포 서버 22번은 팀원 IP만 받는다). 설계와 예상: STEPS.md "배포 단계 측정".
 #
 # 사용(워크트리 루트):
 #   MEASURER=kwonwoo DEPLOY_SSH=iseonjwa LOADGEN_SSH=ubuntu@<발생기 퍼블릭 IP> bash reservation-service/k6/deploy/deploy-run.sh
-#   STEPS="base p4c" KINDS="L"로 일부만 잰다. DRY_RUN=1이면 서버에 아무것도 하지 않고 순서만 출력한다
+#   STEPS="base cur" KINDS="H"로 일부만 잰다. DRY_RUN=1이면 서버에 아무것도 하지 않고 순서와 예상 시간만 출력한다
+#   한 단계가 실패해도 기록하고 다음 단계로 간다. 바로 멈추려면 STOP_ON_FAIL=1
+#   표만 다시 만들 때: python reservation-service/k6/tools/deploy_report.py reservation-service/k6/results/deploy-session-<시각>.txt
 #
 # 먼저 할 일(loadgen.md 4절): 팀 채널 시작 알림(main 머지 금지), 발생기 켜짐 확인, 단계 이미지 넣기(build-images.sh SHIP=1),
 # 발생기 ~/<측정자>/iseonjwa에 저장소 받기. 측정 모드 켜기·키 옮기기·끄기는 이 스크립트가 한다(measure-mode.sh를 부른다).
@@ -31,7 +34,12 @@ LOADGEN_SSH="${LOADGEN_SSH:?LOADGEN_SSH(예: ubuntu@<발생기 퍼블릭 IP>)가
 LOADGEN_DIR="${LOADGEN_DIR:-$MEASURER/iseonjwa}"
 REMOTE_DIR="${REMOTE_DIR:-$MEASURER/k6steps}"
 STEPS="${STEPS:-$STEP_ORDER}"
-KINDS="${KINDS:-L S}"
+# H(선점만 단계 증가)가 기본이다. 시드가 1,500석이라 좌석을 매번 조회하는 L·S는 몇 초 뒤 매진되면 선점을 거의 보내지 않는다.
+# H는 측정 시작 때 받은 좌석 목록에서 골라 매진 뒤에도 선점(대부분 409)을 계속 보내, 이번 개선 대상인 409 경로와 처리 한계를 잰다
+KINDS="${KINDS:-H}"
+# H의 단계별 초당 도착 사용자 수. 사용자 하나가 409를 받으면 0.5~1초 뒤 최대 2번 더 보내므로 매진 뒤 선점 요청은 도착 수의 약 3배다
+H_STAGES="${H_STAGES:-10,20,40,80,160,320,640}"
+STAGE_SECONDS="${STAGE_SECONDS:-60}"
 # 발생기 → Gateway 사설 주소. 공인 IP는 요금이 붙고 보안 그룹에도 맞지 않는다(loadgen.md "주소와 요금")
 TARGET="${TARGET:-http://172.31.4.93:8080}"
 # Note: S는 160명 단계까지만 올린다. 좌석 응답이 약 830KB라 발생기 네트워크 기준(1.562Gbps ≈ 초당 195MB)으로는
@@ -124,9 +132,11 @@ run_kind() {  # run_kind <단계> <L|S>
   case "$kind" in
     L) env_k6="MODEL=open RATE=${RATE:-100} DURATION_SECONDS=${DURATION_SECONDS:-300} RECOVERY_SECONDS=0"
        load_seconds="${DURATION_SECONDS:-300}" ;;
-    S) env_k6="MODEL=ramp STAGES=$S_STAGES RECOVERY_SECONDS=${RECOVERY_SECONDS:-120} MAX_VUS=${MAX_VUS:-4000}"
-       load_seconds=$(( $(tr ',' '\n' <<< "$S_STAGES" | grep -c .) * ${STAGE_SECONDS:-60} )) ;;
-    *) echo "측정 종류는 L, S만 씁니다" >&2; exit 1 ;;
+    S) env_k6="MODEL=ramp STAGES=$S_STAGES STAGE_SECONDS=$STAGE_SECONDS RECOVERY_SECONDS=${RECOVERY_SECONDS:-120} MAX_VUS=${MAX_VUS:-4000}"
+       load_seconds=$(( $(tr ',' '\n' <<< "$S_STAGES" | grep -c .) * STAGE_SECONDS )) ;;
+    H) env_k6="MODEL=ramp SEAT_MAP=once STAGES=$H_STAGES STAGE_SECONDS=$STAGE_SECONDS RECOVERY_SECONDS=${RECOVERY_SECONDS:-60} MAX_VUS=${MAX_VUS:-4000}"
+       load_seconds=$(( $(tr ',' '\n' <<< "$H_STAGES" | grep -c .) * STAGE_SECONDS )) ;;
+    *) echo "측정 종류는 L, S, H만 씁니다" >&2; exit 1 ;;
   esac
   log "[$s-$kind] 회차 만들기(데우기·워밍업·측정)"
   dssh "bash $REMOTE_DIR/server/create-schedule.sh 'k6 deploy $s prime'" >/dev/null || true
@@ -169,14 +179,50 @@ run_kind() {  # run_kind <단계> <L|S>
     echo "$(grep -oE 'k6_memory=[^ ]+ k6_gomemlimit=[^ ]+' "$prefix-k6.log" | head -1) $(grep -oE 'k6_exit=[0-9]+' "$prefix-k6.log" | tail -1)"
     cat "$prefix-server.txt" 2>/dev/null
   } > "$prefix-meta.txt"
+  echo "$name" >> "$SESSION"
   log "[$s-$kind] 끝: $prefix (대사 아래)"
   cat "$prefix-invariants.txt" 2>/dev/null | tail -5
 }
 
+# 이번 실행에서 잰 회의 이름을 모은다. deploy_report.py가 이 목록으로 표를 만든다
+SESSION="$K6/results/deploy-session-$(date +%Y%m%d-%H%M%S).txt"
+: > "$SESSION"
+FAILED=()
+
+# 예상 시간(분): 단계 전환(측정 모드 다시 켜기·Gateway 확인·60초 대기) 약 4분 + 종류마다 회차·워밍업·부하·회복·수집
+kind_minutes() {
+  case "$1" in
+    L) echo $(( (WARMUP_SECONDS + ${DURATION_SECONDS:-300} + 150) / 60 )) ;;
+    S) echo $(( (WARMUP_SECONDS + $(tr ',' '\n' <<< "$S_STAGES" | grep -c .) * STAGE_SECONDS + ${RECOVERY_SECONDS:-120} + 150) / 60 )) ;;
+    H) echo $(( (WARMUP_SECONDS + $(tr ',' '\n' <<< "$H_STAGES" | grep -c .) * STAGE_SECONDS + ${RECOVERY_SECONDS:-60} + 150) / 60 )) ;;
+  esac
+}
+total=0; runs=0
+for s in $STEPS; do total=$(( total + 4 )); for kind in $KINDS; do total=$(( total + $(kind_minutes "$kind") )); runs=$(( runs + 1 )); done; done
+log "단계 $(wc -w <<< "$STEPS")개, 측정 $runs회, 예상 약 $(( total / 60 ))시간 $(( total % 60 ))분. 목록: $SESSION"
+
 for s in $STEPS; do
-  switch_step "$s"
-  for kind in $KINDS; do run_kind "$s" "$kind"; done
+  for kind in $KINDS; do
+    # Note: 한 단계의 실패(이미지 없음, Gateway 미응답, k6 실패)로 몇 시간짜리 실행 전체가 멈추지 않게 서브셸에서 돌린다.
+    # 서브셸 안에서는 set -e가 그대로 걸려 그 단계는 실패한 곳에서 멈춘다. 측정 모드 전환은 단계마다 다시 한다
+    set +e
+    ( set -e; switch_step "$s"; run_kind "$s" "$kind" )
+    rc=$?
+    set -e
+    if [ "$rc" != 0 ]; then
+      FAILED+=("$s-$kind")
+      echo "FAILED $s $kind rc=$rc" >> "$SESSION"
+      log "[$s-$kind] 실패(rc=$rc). 기록하고 다음 단계로 간다"
+      [ "${STOP_ON_FAIL:-0}" = 1 ] && break 2
+    fi
+  done
 done
+
+if [ "$DRY" != 1 ] && [ -s "$SESSION" ]; then
+  log "단계 비교표 만들기"
+  python "$K6/tools/deploy_report.py" "$SESSION" || echo "표를 만들지 못했다. 위 명령으로 다시 만든다" >&2
+fi
+[ "${#FAILED[@]}" = 0 ] || log "실패한 단계: ${FAILED[*]}"
 
 if [ "$OFF_AT_END" = 1 ]; then
   log "측정 모드 off, 발생기 키 지움"
