@@ -33,7 +33,7 @@ describe('SignupPage', () => {
 
     await fillSignup({ email: '  New@Iseonjwa.dev ' })
 
-    expect(await screen.findByText('가입을 마쳤어요')).toBeInTheDocument()
+    expect(await screen.findByText('회원가입이 완료되었습니다')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeInTheDocument()
     expect(sessionStore.getState().refreshToken).not.toBeNull()
@@ -100,7 +100,9 @@ describe('SignupPage', () => {
 
     await fillSignup({ email: 'new@iseonjwa.dev' })
 
-    expect(await screen.findByText('가입을 마쳤어요. 로그인해 주세요')).toBeInTheDocument()
+    expect(
+      await screen.findByText('회원가입이 완료되었습니다. 로그인해주세요.'),
+    ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(screen.getByLabelText('이메일')).toHaveValue('new@iseonjwa.dev')
   })

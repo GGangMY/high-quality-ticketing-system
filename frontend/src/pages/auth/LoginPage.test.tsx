@@ -18,7 +18,7 @@ describe('LoginPage', () => {
     const { router } = await renderRoutesReady(routes, '/me')
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
-    expect(await screen.findByText('로그인하면 보던 화면으로 돌아가요')).toBeInTheDocument()
+    expect(await screen.findByText('로그인하면 보던 화면으로 돌아갑니다.')).toBeInTheDocument()
 
     await fillLogin(DEMO_USER.email, DEMO_USER.password)
 
@@ -52,7 +52,7 @@ describe('LoginPage', () => {
     expect(password).toHaveAttribute('aria-invalid', 'true')
     expect(password).toHaveFocus()
     expect(password).toHaveAccessibleDescription(
-      '이메일 또는 비밀번호를 확인해주세요 비밀번호를 5번 틀리면 계정이 잠겨요',
+      '이메일 또는 비밀번호를 확인해주세요 비밀번호를 5번 틀리면 계정이 잠깁니다.',
     )
   })
 
@@ -70,9 +70,9 @@ describe('LoginPage', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('로그인을 여러 번 실패하여 계정이 잠겼습니다')
     expect(alert).toHaveTextContent(
-      '임시 비밀번호를 받으면 로그인할 때 새 비밀번호로 바꿀 수 있어요',
+      '임시 비밀번호를 받으면 로그인할 때 새 비밀번호로 변경할 수 있습니다.',
     )
-    expect(screen.queryByText('비밀번호를 5번 틀리면 계정이 잠겨요')).not.toBeInTheDocument()
+    expect(screen.queryByText('비밀번호를 5번 틀리면 계정이 잠깁니다.')).not.toBeInTheDocument()
 
     await userEvent.clear(password)
     await userEvent.type(password, DEMO_USER.password)
@@ -90,7 +90,7 @@ describe('LoginPage', () => {
 
     expect(await screen.findByRole('heading', { name: '비밀번호 변경' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/password-change')
-    expect(screen.getByText('임시 비밀번호로는 로그인할 수 없어요')).toBeInTheDocument()
+    expect(screen.getByText('임시 비밀번호로는 로그인할 수 없습니다')).toBeInTheDocument()
     expect(screen.getByLabelText('이메일')).toHaveValue(TEMPORARY_PASSWORD_USER.email)
 
     await userEvent.type(screen.getByLabelText('임시 비밀번호'), TEMPORARY_PASSWORD_USER.password)
@@ -100,7 +100,7 @@ describe('LoginPage', () => {
 
     expect(await screen.findByRole('heading', { name: '내 정보' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/me')
-    expect(await screen.findByText('비밀번호를 바꿨어요')).toBeInTheDocument()
+    expect(await screen.findByText('비밀번호가 변경되었습니다')).toBeInTheDocument()
   })
 
   it('로그인하면 이전 사용자의 조회 결과를 지운다', async () => {
@@ -118,7 +118,7 @@ describe('LoginPage', () => {
 
     await userEvent.click(screen.getByRole('link', { name: '로그인' }))
 
-    expect(await screen.findByText('예매하려면 로그인해 주세요')).toBeInTheDocument()
+    expect(await screen.findByText('예매하려면 로그인해주세요.')).toBeInTheDocument()
   })
 
   it('재발급이 거절돼 세션이 끝났으면 다시 로그인하라고 알린다', async () => {

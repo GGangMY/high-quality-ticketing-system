@@ -12,7 +12,9 @@ describe('MyInfoPage', () => {
     await renderRoutesReady(routes, '/me')
 
     // 불러오는 동안은 화면 낭독기가 읽는 상태 문구를 둔다
-    expect(screen.getByText('내 정보를 불러오고 있어요').closest('[role="status"]')).not.toBeNull()
+    expect(
+      screen.getByText('내 정보를 불러오는 중입니다').closest('[role="status"]'),
+    ).not.toBeNull()
     // 프로필 카드에도 같은 이메일이 있어 내 정보 화면(main) 안에서 찾는다
     const main = within(screen.getByRole('main'))
     expect(await main.findByText(DEMO_USER.email)).toBeInTheDocument()

@@ -1122,7 +1122,7 @@ describe('내 정보의 회원 번호', () => {
     expect(await screen.findByText('회원 번호')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
     expect(
-      screen.getByText('운영자에게 비밀번호 초기화를 부탁할 때 알려 주세요'),
+      screen.getByText('운영자에게 비밀번호 초기화를 요청할 때 알려주세요.'),
     ).toBeInTheDocument()
   })
 
