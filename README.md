@@ -10,10 +10,10 @@
 
 <br>
 
-<a href="https://52.63.10.174"><img width="204" alt="서비스" src="https://img.shields.io/badge/%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%B0%94%EB%A1%9C_%EC%98%88%EB%A7%A4%ED%95%B4_%EB%B3%B4%EA%B8%B0-3B3BD4?style=flat-square"></a>
-<a href="https://52.63.10.174/api/docs"><img width="220" alt="Swagger" src="https://img.shields.io/badge/API_%EB%AC%B8%EC%84%9C-Swagger_UI-85EA2D?style=flat-square&logo=swagger&logoColor=black"></a>
-<a href="https://52.63.10.174/grafana/"><img width="206" alt="Grafana" src="https://img.shields.io/badge/%EC%8B%A4%EC%8B%9C%EA%B0%84_%EC%A7%80%ED%91%9C-Grafana-F46800?style=flat-square&logo=grafana&logoColor=white"></a>
-<a href="https://app.notion.com/p/teamsparta/5-4132dc3ef51480cc8559f3f3778e0f1b"><img width="212" alt="Notion" src="https://img.shields.io/badge/%EB%B0%9C%ED%91%9C%ED%9A%8C_%EB%B8%8C%EB%A1%9C%EC%85%94-Notion-000000?style=flat-square&logo=notion&logoColor=white"></a>
+<a href="https://52.63.10.174"><img width="177" alt="서비스" src="https://img.shields.io/badge/%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%B0%94%EB%A1%9C_%EC%98%88%EB%A7%A4%ED%95%B4_%EB%B3%B4%EA%B8%B0-3B3BD4?style=flat-square"></a>
+<a href="https://52.63.10.174/api/docs"><img width="191" alt="Swagger" src="https://img.shields.io/badge/API_%EB%AC%B8%EC%84%9C-Swagger_UI-85EA2D?style=flat-square&logo=swagger&logoColor=black"></a>
+<a href="https://52.63.10.174/grafana/"><img width="178" alt="Grafana" src="https://img.shields.io/badge/%EC%8B%A4%EC%8B%9C%EA%B0%84_%EC%A7%80%ED%91%9C-Grafana-F46800?style=flat-square&logo=grafana&logoColor=white"></a>
+<a href="https://app.notion.com/p/teamsparta/5-4132dc3ef51480cc8559f3f3778e0f1b"><img width="183" alt="Notion" src="https://img.shields.io/badge/%EB%B0%9C%ED%91%9C%ED%9A%8C_%EB%B8%8C%EB%A1%9C%EC%85%94-Notion-000000?style=flat-square&logo=notion&logoColor=white"></a>
 
 ![Java](https://img.shields.io/badge/Java_21-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot_4.1.2-6DB33F?logo=springboot&logoColor=white)
