@@ -223,12 +223,11 @@ sequenceDiagram
 
 상태는 "이전 상태일 때만" 바꾸는 조건부 갱신으로 옮긴다. 늦게 온 이벤트나 중복 이벤트가 이미 끝난 상태를 되돌리지 못한다.
 
-<table>
-<tr><th>예매</th><th>결제</th></tr>
-<tr><td valign="top">
+**예매 상태**
 
 ```mermaid
 stateDiagram-v2
+  direction LR
   [*] --> HELD: 좌석 선점
   HELD --> CONFIRMED: 결제 승인
   HELD --> RELEASED: 결제 거절
@@ -236,10 +235,11 @@ stateDiagram-v2
   CONFIRMED --> CANCELED: 취소·환불
 ```
 
-</td><td valign="top">
+**결제 상태**
 
 ```mermaid
 stateDiagram-v2
+  direction LR
   [*] --> REQUESTED
   REQUESTED --> APPROVED: 승인
   REQUESTED --> DECLINED: 거절
@@ -249,9 +249,6 @@ stateDiagram-v2
   UNKNOWN --> NEEDS_MANUAL_CHECK
   APPROVED --> REFUNDED: 환불
 ```
-
-</td></tr>
-</table>
 
 | 장치 | 막는 것 |
 |---|---|
