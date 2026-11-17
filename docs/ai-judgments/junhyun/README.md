@@ -8,6 +8,7 @@ junhyun이 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 판단 대상 | AI | 판단 | 공통 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-17 | **README를 브로셔 내용으로 꾸미자는 AI 안 대신, 프로젝트를 드러내는 README를 따로 쓰기로 함(배포 서버는 이번 주에 내림)** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-17-readme-not-brochure-copy.md) |
 | 2026-11-16 | **공개 Grafana를 "로그인 없이 볼 수 있다"고 쓴 AI의 브로셔 문장이 실제와 다르다고 지적함(원인은 메모리 상한 재시작)** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-16-grafana-unauthorized-memory-not-viewer-account.md) |
 | 2026-11-16 | **Swagger PR(#685)에 contract 이슈와 다른 담당 리뷰어를 두자는 제안을 거부하고 바로 머지하기로 함** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-16-swagger-pr-no-contract-no-reviewer.md) |
 | 2026-11-16 | **AI가 쓴 브로셔 문장 중 번역체·어색한 표현을 한국어 원문처럼 고치게 함** | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-16-brochure-natural-korean-not-translationese.md) |

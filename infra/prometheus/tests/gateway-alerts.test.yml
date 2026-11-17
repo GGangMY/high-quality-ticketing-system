@@ -7,7 +7,8 @@ rule_files:
 evaluation_interval: 15s
 
 tests:
-  # 지속 과부하: 호출이 분당 약 6,000건일 때 거절이 분당 120건(약 2%)으로 이어지면 5분 지속 뒤 울리고, 분당 30건(약 0.5%)이면 울리지 않는다
+  # 지속 과부하: 호출이 분당 약 6,000건일 때 거절이 분당 600건(약 9%)으로 이어지면 5분 지속 뒤 울리고, 분당 120건(약 2%)이면 울리지 않는다
+  # (기준 5%. 2%는 2026-11-17 전 기준 1%에서는 울리던 값이다)
   - interval: 1m
     input_series:
       - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="successful"}'
@@ -15,16 +16,16 @@ tests:
       - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="failed"}'
         values: '0+600x15'
       - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="ignored"}'
-        values: '0+30x4 150+120x10'
+        values: '0+120x4 1080+600x10'
       - series: 'gateway_auth_redis_failures_total{application="gateway",cause="bulkhead_full"}'
-        values: '0+30x4 150+120x10'
+        values: '0+120x4 1080+600x10'
       - series: 'gateway_auth_redis_failures_total{application="gateway",cause="lookup_timeout"}'
         values: '0+600x15'
     alert_rule_test:
       - eval_time: 5m
         alertname: GatewayAuthRedisBulkheadRejecting
         exp_alerts: []
-      # 8분에는 5분 평균이 이미 1%를 넘었지만(약 1.6%) 5분 지속(for)을 채우지 못해 울리지 않는다
+      # 8분에는 5분 평균이 이미 5%를 넘었지만 5분 지속(for)을 채우지 못해 울리지 않는다
       - eval_time: 8m
         alertname: GatewayAuthRedisBulkheadRejecting
         exp_alerts: []
@@ -33,45 +34,66 @@ tests:
         exp_alerts:
           - exp_labels: {service: gateway, urgency: threshold, severity: warning, application: gateway}
             exp_annotations:
-              summary: "Gateway가 인증 요청의 1% 넘게 bulkhead로 5분 넘게 거절하고 있습니다(5분 평균). Gateway 과부하이거나 Redis 응답 지연입니다."
+              summary: "Gateway가 인증 요청의 5% 넘게 bulkhead로 5분 넘게 거절하고 있습니다(5분 평균). Gateway 과부하이거나 Redis 응답 지연입니다."
               runbook: "docs/decisions/0050-gateway-auth-redis-breaker-bulkhead-split.md 결정 2. gateway_auth_redis_failures_total의 lookup_timeout·redis_error가 함께 늘었으면 Redis 지연, 아니면 Gateway 과부하"
 
-  # 오픈 피크: 호출이 분당 6,000건일 때 5분부터 1분 동안만 거절이 분당 120건(약 2%)이면 피크 규칙은 바로 울리고,
-  # 지속 규칙은 5분 평균에 묻혀 울리지 않는다. 몰림이 끝나면 피크 규칙도 풀린다.
+  # 오픈 피크(낮은 거절): 호출이 분당 6,000건일 때 5분부터 3분 동안 거절이 분당 120건(약 2%)이면 1분 지속을 넘겨도 피크·지속 규칙 모두 울리지 않는다.
+  # 거절이 상한·bulkhead의 설계대로 동작한 결과라 알리지 않는다(2026-11-17 전 기준 1%에서는 바로 울렸다).
   - interval: 15s
     input_series:
       - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="successful"}'
-        values: '0+1500x39'
+        values: '0+1500x47'
       - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="ignored"}'
-        values: '0x19 30+30x3 120x15'
+        values: '0x19 30+30x11 360x15'
       - series: 'gateway_auth_redis_failures_total{application="gateway",cause="bulkhead_full"}'
-        values: '0x19 30+30x3 120x15'
+        values: '0x19 30+30x11 360x15'
+    alert_rule_test:
+      - eval_time: 5m45s
+        alertname: GatewayAuthRedisBulkheadRejectingPeak
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: GatewayAuthRedisBulkheadRejectingPeak
+        exp_alerts: []
+      - eval_time: 5m45s
+        alertname: GatewayAuthRedisBulkheadRejecting
+        exp_alerts: []
+
+  # 오픈 피크(치명적): 5분부터 3분 동안 거절이 분당 800건(약 12%)으로 이어지면 1분 지속(for) 뒤 피크 규칙이 울리고, 몰림이 끝나면 풀린다.
+  - interval: 15s
+    input_series:
+      - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="successful"}'
+        values: '0+1500x47'
+      - series: 'resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis",kind="ignored"}'
+        values: '0x19 200+200x11 2400x15'
+      - series: 'gateway_auth_redis_failures_total{application="gateway",cause="bulkhead_full"}'
+        values: '0x19 200+200x11 2400x15'
     alert_rule_test:
       - eval_time: 4m
         alertname: GatewayAuthRedisBulkheadRejectingPeak
         exp_alerts: []
+      # 5분 45초에는 1분 평균이 10%를 넘었지만 1분 지속(for)을 채우지 못해 울리지 않는다
       - eval_time: 5m45s
+        alertname: GatewayAuthRedisBulkheadRejectingPeak
+        exp_alerts: []
+      - eval_time: 7m
         alertname: GatewayAuthRedisBulkheadRejectingPeak
         exp_alerts:
           - exp_labels: {service: gateway, urgency: threshold, severity: warning, application: gateway}
             exp_annotations:
-              summary: "Gateway가 최근 1분 인증 요청의 1% 넘게 bulkhead로 거절했습니다(오픈 피크). Gateway 과부하이거나 Redis 응답 지연입니다."
+              summary: "Gateway가 1분 넘게 인증 요청의 10% 넘게 bulkhead로 거절하고 있습니다(1분 평균). Gateway 과부하이거나 Redis 응답 지연입니다."
               runbook: "docs/decisions/0050-gateway-auth-redis-breaker-bulkhead-split.md 결정 2·바꿀 조건. gateway_auth_redis_failures_total의 lookup_timeout·redis_error가 함께 늘었으면 Redis 지연, 아니면 Gateway 과부하"
-      - eval_time: 5m45s
-        alertname: GatewayAuthRedisBulkheadRejecting
-        exp_alerts: []
-      - eval_time: 8m
+      - eval_time: 10m
         alertname: GatewayAuthRedisBulkheadRejectingPeak
         exp_alerts: []
 
-  # 동시 처리 수 상한 지속 거절: 관측된 요청이 분당 5,880건이고 거절이 분당 120건(들어온 요청의 2%)으로 이어지면 5분 지속 뒤 울린다.
-  # 거절이 분당 30건(약 0.5%)인 앞 구간에서는 울리지 않는다. 거절은 http_server_requests에 들어가지 않으므로 따로 더한다.
+  # 동시 처리 수 상한 지속 거절: 관측된 요청이 분당 5,880건이고 거절이 분당 600건(들어온 요청의 약 9%)으로 이어지면 5분 지속 뒤 울린다.
+  # 거절이 분당 120건(2%)인 앞 구간에서는 울리지 않는다. 거절은 http_server_requests에 들어가지 않으므로 따로 더한다.
   - interval: 1m
     input_series:
       - series: 'http_server_requests_seconds_count{application="gateway",uri="/api/v1/queue",status="200"}'
         values: '0+5880x15'
       - series: 'gateway_in_flight_rejected_total{application="gateway"}'
-        values: '0+30x4 150+120x10'
+        values: '0+120x4 1080+600x10'
     alert_rule_test:
       - eval_time: 5m
         alertname: GatewayInFlightRejecting
@@ -84,31 +106,49 @@ tests:
         exp_alerts:
           - exp_labels: {service: gateway, urgency: threshold, severity: warning, application: gateway}
             exp_annotations:
-              summary: "Gateway가 들어온 요청의 1% 넘게 동시 처리 수 상한으로 5분 넘게 거절하고 있습니다(5분 평균). 처리량보다 요청이 많은 상태입니다."
+              summary: "Gateway가 들어온 요청의 5% 넘게 동시 처리 수 상한으로 5분 넘게 거절하고 있습니다(5분 평균). 처리량보다 요청이 많은 상태입니다."
               runbook: "docs/design/infra/gateway-overload-troubleshooting-story.md. gateway_in_flight_requests가 gateway_in_flight_limit에 붙어 있는지, 서버 CPU가 포화인지 함께 본다"
 
-  # 동시 처리 수 상한 오픈 피크: 5분부터 1분 동안만 거절이 분당 120건(약 2%)이면 피크 규칙은 바로 울리고 지속 규칙은 울리지 않는다.
-  # 몰림이 끝나면 피크 규칙도 풀린다.
+  # 동시 처리 수 상한 오픈 피크(낮은 거절): 5분부터 3분 동안 거절이 분당 120건(약 2%)이면 1분 지속을 넘겨도 피크·지속 규칙 모두 울리지 않는다.
   - interval: 15s
     input_series:
       - series: 'http_server_requests_seconds_count{application="gateway",uri="/api/v1/queue",status="200"}'
-        values: '0+1470x39'
+        values: '0+1470x47'
       - series: 'gateway_in_flight_rejected_total{application="gateway"}'
-        values: '0x19 30+30x3 120x15'
+        values: '0x19 30+30x11 360x15'
+    alert_rule_test:
+      - eval_time: 5m45s
+        alertname: GatewayInFlightRejectingPeak
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: GatewayInFlightRejectingPeak
+        exp_alerts: []
+      - eval_time: 5m45s
+        alertname: GatewayInFlightRejecting
+        exp_alerts: []
+
+  # 동시 처리 수 상한 오픈 피크(치명적): 5분부터 3분 동안 거절이 분당 800건(약 12%)으로 이어지면 1분 지속(for) 뒤 울리고, 끝나면 풀린다.
+  - interval: 15s
+    input_series:
+      - series: 'http_server_requests_seconds_count{application="gateway",uri="/api/v1/queue",status="200"}'
+        values: '0+1470x47'
+      - series: 'gateway_in_flight_rejected_total{application="gateway"}'
+        values: '0x19 200+200x11 2400x15'
     alert_rule_test:
       - eval_time: 4m
         alertname: GatewayInFlightRejectingPeak
         exp_alerts: []
+      # 5분 45초에는 1분 평균이 10%를 넘었지만 1분 지속(for)을 채우지 못해 울리지 않는다
       - eval_time: 5m45s
+        alertname: GatewayInFlightRejectingPeak
+        exp_alerts: []
+      - eval_time: 7m
         alertname: GatewayInFlightRejectingPeak
         exp_alerts:
           - exp_labels: {service: gateway, urgency: threshold, severity: warning, application: gateway}
             exp_annotations:
-              summary: "Gateway가 최근 1분 들어온 요청의 1% 넘게 동시 처리 수 상한으로 거절했습니다(오픈 피크)."
+              summary: "Gateway가 1분 넘게 들어온 요청의 10% 넘게 동시 처리 수 상한으로 거절하고 있습니다(1분 평균)."
               runbook: "docs/design/infra/gateway-overload-troubleshooting-story.md. 오픈마다 울리면 상한 값(64)이나 장비 분리(ADR 0047)를 다시 본다"
-      - eval_time: 5m45s
-        alertname: GatewayInFlightRejecting
-        exp_alerts: []
-      - eval_time: 9m
+      - eval_time: 10m
         alertname: GatewayInFlightRejectingPeak
         exp_alerts: []
