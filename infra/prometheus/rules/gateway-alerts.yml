@@ -1,4 +1,6 @@
 # Gateway 알림 규칙(ADR 0050). 기준값은 [가정]이며 부하 측정에 맞춰 조정한다.
+# Note: 처음 기준 1%는 상한·bulkhead가 설계대로 넘친 요청을 재시도 가능한 503으로 돌려보내는 오픈 몰림마다 울렸다(2026-11-17).
+# 그래서 "사용자 다수가 실패하는 치명적 상황"만 알리도록 지속 5%·피크 10%(1분 지속)로 올렸다. 1~5% 거절은 알리지 않는 것이 대가다.
 # - urgency=threshold: 서비스는 돌지만 일부 인증 요청을 bulkhead로 거절하는 상태
 #
 # Note: auth-redis 차단기는 bulkhead 거절을 실패로 세지 않는다(ignoreExceptions). 그래서 Gateway가 넘친 인증 요청을 503으로 거절해도
@@ -8,29 +10,29 @@
 groups:
   - name: gateway-threshold
     rules:
-      # 지속 과부하: 5분 평균 1% 초과가 5분 이어질 때. 오픈 피크(수십 초~1분)는 평균에 묻혀 잡지 못한다.
+      # 지속 과부하: 5분 평균 5% 초과가 5분 이어질 때. 오픈 피크(수십 초~1분)는 평균에 묻혀 잡지 못한다.
       - alert: GatewayAuthRedisBulkheadRejecting
         expr: >-
           sum by (application) (rate(gateway_auth_redis_failures_total{application="gateway",cause="bulkhead_full"}[5m]))
           / sum by (application) (rate(resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis"}[5m]))
-          > 0.01
+          > 0.05
         for: 5m
         labels: {service: gateway, urgency: threshold, severity: warning}
         annotations:
-          summary: "Gateway가 인증 요청의 1% 넘게 bulkhead로 5분 넘게 거절하고 있습니다(5분 평균). Gateway 과부하이거나 Redis 응답 지연입니다."
+          summary: "Gateway가 인증 요청의 5% 넘게 bulkhead로 5분 넘게 거절하고 있습니다(5분 평균). Gateway 과부하이거나 Redis 응답 지연입니다."
           runbook: "docs/decisions/0050-gateway-auth-redis-breaker-bulkhead-split.md 결정 2. gateway_auth_redis_failures_total의 lookup_timeout·redis_error가 함께 늘었으면 Redis 지연, 아니면 Gateway 과부하"
-      # 오픈 피크: 1분 평균 1% 초과면 바로 울린다. ADR 0050 "바꿀 조건"(오픈마다 울리면 입구 요청률 제한)의 신호다.
-      # 1분 평균이라 20초 안팎보다 짧은 몰림은 여전히 잡지 못한다(3차 G의 10초·3%는 약 0.5%, 계산값).
+      # 오픈 피크: 1분 평균 10% 초과가 1분 이어질 때 울린다. 수십 초 몰림의 거절은 설계대로의 동작이라 알리지 않는다. ADR 0050 "바꿀 조건"(오픈마다 울리면 입구 요청률 제한)의 신호다.
       - alert: GatewayAuthRedisBulkheadRejectingPeak
         expr: >-
           sum by (application) (rate(gateway_auth_redis_failures_total{application="gateway",cause="bulkhead_full"}[1m]))
           / sum by (application) (rate(resilience4j_circuitbreaker_calls_seconds_count{application="gateway",name="auth-redis"}[1m]))
-          > 0.01
+          > 0.10
+        for: 1m
         labels: {service: gateway, urgency: threshold, severity: warning}
         annotations:
-          summary: "Gateway가 최근 1분 인증 요청의 1% 넘게 bulkhead로 거절했습니다(오픈 피크). Gateway 과부하이거나 Redis 응답 지연입니다."
+          summary: "Gateway가 1분 넘게 인증 요청의 10% 넘게 bulkhead로 거절하고 있습니다(1분 평균). Gateway 과부하이거나 Redis 응답 지연입니다."
           runbook: "docs/decisions/0050-gateway-auth-redis-breaker-bulkhead-split.md 결정 2·바꿀 조건. gateway_auth_redis_failures_total의 lookup_timeout·redis_error가 함께 늘었으면 Redis 지연, 아니면 Gateway 과부하"
-      # 맨 앞 동시 처리 수 상한(InFlightLimitHandlerDecorator) 거절률. 모양은 위 bulkhead 규칙과 같다(5분·1분 평균 1%, [가정]).
+      # 맨 앞 동시 처리 수 상한(InFlightLimitHandlerDecorator) 거절률. 모양은 위 bulkhead 규칙과 같다(5분 평균 5%, 1분 평균 10%, [가정]).
       # Note: 상한 거절은 서버 관측보다 앞(HttpHandler)에서 일어나 http_server_requests에 들어가지 않는다(#497).
       # 그래서 분모는 관측된 요청 수에 거절 수를 더한 "Gateway에 들어온 요청 수"다.
       - alert: GatewayInFlightRejecting
@@ -38,19 +40,20 @@ groups:
           sum by (application) (rate(gateway_in_flight_rejected_total{application="gateway"}[5m]))
           / (sum by (application) (rate(http_server_requests_seconds_count{application="gateway"}[5m]))
              + sum by (application) (rate(gateway_in_flight_rejected_total{application="gateway"}[5m])))
-          > 0.01
+          > 0.05
         for: 5m
         labels: {service: gateway, urgency: threshold, severity: warning}
         annotations:
-          summary: "Gateway가 들어온 요청의 1% 넘게 동시 처리 수 상한으로 5분 넘게 거절하고 있습니다(5분 평균). 처리량보다 요청이 많은 상태입니다."
+          summary: "Gateway가 들어온 요청의 5% 넘게 동시 처리 수 상한으로 5분 넘게 거절하고 있습니다(5분 평균). 처리량보다 요청이 많은 상태입니다."
           runbook: "docs/design/infra/gateway-overload-troubleshooting-story.md. gateway_in_flight_requests가 gateway_in_flight_limit에 붙어 있는지, 서버 CPU가 포화인지 함께 본다"
       - alert: GatewayInFlightRejectingPeak
         expr: >-
           sum by (application) (rate(gateway_in_flight_rejected_total{application="gateway"}[1m]))
           / (sum by (application) (rate(http_server_requests_seconds_count{application="gateway"}[1m]))
              + sum by (application) (rate(gateway_in_flight_rejected_total{application="gateway"}[1m])))
-          > 0.01
+          > 0.10
+        for: 1m
         labels: {service: gateway, urgency: threshold, severity: warning}
         annotations:
-          summary: "Gateway가 최근 1분 들어온 요청의 1% 넘게 동시 처리 수 상한으로 거절했습니다(오픈 피크)."
+          summary: "Gateway가 1분 넘게 들어온 요청의 10% 넘게 동시 처리 수 상한으로 거절하고 있습니다(1분 평균)."
           runbook: "docs/design/infra/gateway-overload-troubleshooting-story.md. 오픈마다 울리면 상한 값(64)이나 장비 분리(ADR 0047)를 다시 본다"
