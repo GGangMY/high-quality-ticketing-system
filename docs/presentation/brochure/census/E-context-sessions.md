@@ -125,7 +125,7 @@
 
 ## 5. 못 본 것과 이유
 - **세션 기록 219개(853MB)**: 통째로 읽지 않았고 assistant 응답 문장 중 숫자가 있고 `p95`·`→`·`MiB`·`OOM` 등이 든 줄을 저장소 문서와 대조했다. 문서에 이미 있는 숫자는 제외했으므로 아직 빠진 사실이 남아 있을 수 있다(특히 11/9~11/12 구버전 세션, 도구 결과 안의 숫자). 사용자 발화와 도구 출력은 대조 대상에서 뺐다.
-- **docs/context 전부**: 파일은 모두 열거했으나 본문을 끝까지 읽은 것은 handoff, measure progress, overnight plan·morning report, report-11-15, achievements-gateway, concert-detail-cost, safety-net-measure, remeasure-11-13 일부, queue-poll·scarcity 계획, study-cost-reduction 일부, m4-plan 발표 틀, handoff-archive 일부뿐이다. 나머지(11/8~11/12 review-requests, contract-draft, til 초안 등)는 숫자 대조 스크립트로 저장소 문서와의 차이만 확인했다(대부분 0줄).
+- **docs/context 전부**: 파일은 모두 열거했으나 본문을 끝까지 읽은 것은 handoff, measure progress, overnight plan·morning report, report-11-15, achievements-gateway, concert-detail-cost, safety-net-measure, remeasure-11-13 일부, queue-poll·scarcity 계획, study-cost-reduction 일부, m4-plan 발표 틀, handoff-archive 일부뿐이다. 나머지(11/8~11/12 review-requests, contract-draft 등)는 숫자 대조 스크립트로 저장소 문서와의 차이만 확인했다(대부분 0줄).
 - **notion-drafts**: SA MASTER v3.1과 회의록이다. 본 조사에서 열어 읽지 않았다(설계 정본은 저장소 `docs/core`와 다른 조사가 맡음).
 - **Linear**: ISE-264 댓글만 읽었다(OOM 분해, ECDSA, 예열, Kafka 헬스체크, 야간 보고). ISE-94·230·237·279·288 등 다른 이슈의 본문·댓글은 읽지 못했다(시간).
 - **메모리 폴더**: MEMORY.md 색인과 `overnight-delegation-1115`, `ise94-resume-on-server`만 읽었다. 나머지 20개는 작업 규칙이라 숫자가 없는 것으로 보지만 열어 확인하지 않았다.
