@@ -10,10 +10,10 @@
 
 <br>
 
-[![서비스](https://img.shields.io/badge/%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%B0%94%EB%A1%9C_%EC%98%88%EB%A7%A4%ED%95%B4_%EB%B3%B4%EA%B8%B0-3B3BD4?style=for-the-badge)](https://52.63.10.174)
-[![Swagger](https://img.shields.io/badge/API_%EB%AC%B8%EC%84%9C-Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://52.63.10.174/api/docs)
-[![Grafana](https://img.shields.io/badge/%EC%8B%A4%EC%8B%9C%EA%B0%84_%EC%A7%80%ED%91%9C-Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://52.63.10.174/grafana/)
-[![Notion](https://img.shields.io/badge/%EB%B0%9C%ED%91%9C%ED%9A%8C_%EB%B8%8C%EB%A1%9C%EC%85%94-Notion-000000?style=for-the-badge&logo=notion&logoColor=white)](https://app.notion.com/p/teamsparta/5-4132dc3ef51480cc8559f3f3778e0f1b)
+<a href="https://52.63.10.174"><img height="30" alt="서비스" src="https://img.shields.io/badge/%EC%84%9C%EB%B9%84%EC%8A%A4-%EB%B0%94%EB%A1%9C_%EC%98%88%EB%A7%A4%ED%95%B4_%EB%B3%B4%EA%B8%B0-3B3BD4?style=flat-square"></a>
+<a href="https://52.63.10.174/api/docs"><img height="30" alt="Swagger" src="https://img.shields.io/badge/API_%EB%AC%B8%EC%84%9C-Swagger_UI-85EA2D?style=flat-square&logo=swagger&logoColor=black"></a>
+<a href="https://52.63.10.174/grafana/"><img height="30" alt="Grafana" src="https://img.shields.io/badge/%EC%8B%A4%EC%8B%9C%EA%B0%84_%EC%A7%80%ED%91%9C-Grafana-F46800?style=flat-square&logo=grafana&logoColor=white"></a>
+<a href="https://app.notion.com/p/teamsparta/5-4132dc3ef51480cc8559f3f3778e0f1b"><img height="30" alt="Notion" src="https://img.shields.io/badge/%EB%B0%9C%ED%91%9C%ED%9A%8C_%EB%B8%8C%EB%A1%9C%EC%85%94-Notion-000000?style=flat-square&logo=notion&logoColor=white"></a>
 
 ![Java](https://img.shields.io/badge/Java_21-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot_4.1.2-6DB33F?logo=springboot&logoColor=white)
@@ -53,13 +53,13 @@
 
 <table>
   <tr>
-    <td align="center" width="25%"><h3>0건</h3><b>중복 판매</b><br><sub>모든 배포 측정에서<br>확정 예매 = 결제 승인 = 판매 좌석</sub></td>
+    <td align="center" width="25%"><h3>0건</h3><b>중복 판매</b><br><sub>모든 배포 측정에서<br>확정 예매 = 결제 승인<br>= 판매된 좌석</sub></td>
     <td align="center" width="25%"><h3>p95 −85%</h3><b>Gateway 과부하</b><br><sub>초당 2,000건, 굿풋 +30%<br>동시 처리 상한 64 전후</sub></td>
     <td align="center" width="25%"><h3>100%</h3><b>추첨 자동결제 10분 안</b><br><sub>당첨 약 2,000건<br>개선 전 92.4~93.4%</sub></td>
     <td align="center" width="25%"><h3>34 = 34</h3><b>PG 원장 = 결제 DB</b><br><sub>결제 서버를 강제로 종료해도<br>중복 승인 0건</sub></td>
   </tr>
   <tr>
-    <td align="center"><h3>2,020개</h3><b>테스트</b><br><sub>Java <code>@Test</code> 1,968 + 매개변수 52<br>프론트엔드는 따로 약 1,230</sub></td>
+    <td align="center"><h3>2,020개</h3><b>테스트</b><br><sub>Java <code>@Test</code> 1,968<br>+ 매개변수 테스트 52<br>프론트엔드는 따로 약 1,230</sub></td>
     <td align="center"><h3>806건</h3><b>AI 판단 기록</b><br><sub>개별 기록 241건 중<br>94건(39%)은 AI 제안 거부</sub></td>
     <td align="center"><h3>63 · 74</h3><b>ADR · 트러블슈팅</b><br><sub>되돌리기 어려운 결정과<br>막혔던 문제를 모두 저장소에</sub></td>
     <td align="center"><h3>37개</h3><b>알림 규칙</b><br><sub>promtool 테스트 64건으로<br>제때 울리는지까지 검사</sub></td>
@@ -72,24 +72,24 @@
 ## 무엇을 만들었나
 
 ```mermaid
-flowchart LR
+flowchart TB
   A["공연 목록·상세"] --> B{"예매 방식"}
   B -->|선착순| Q["대기열<br/>내 순번·예상 대기 시간"]
-  Q -->|입장 토큰| S["좌석 선택<br/>구역·매수·좌석"]
-  S -.->|"이미 선택된 좌석입니다"| S
-  S -->|"선점 성공(HELD)"| P["결제<br/>5분 안"]
-  P --> C["예매 확정<br/>모바일 티켓"]
   B -->|추첨| L["응모<br/>자동결제 카드 등록"]
+  Q -->|입장 토큰| S["좌석 선택<br/>구역·매수·좌석"]
+  S -->|"선점 성공(HELD)"| P["결제<br/>5분 안"]
+  S -.->|"같은 좌석을 먼저 잡은 사람이 있으면"| X["이미 선택된 좌석입니다<br/>겹친 좌석만 빼고 다시 고름"]
   L --> D["추첨"]
   D -->|당첨| AUTO["좌석 자동 배정<br/>등록 카드로 자동결제"]
   D -.->|예비 당첨| W["당첨자가 결제에 실패하면<br/>자리를 이어받음"]
   W -.-> AUTO
+  P --> C["예매 확정<br/>모바일 티켓"]
   AUTO --> C
 ```
 
 | 예매 방식 | 사용자 경험 |
 |---|---|
-| 🎫 **선착순 예매** | 대기열에서 내 순번과 예상 대기 시간을 보다가 입장하면 구역·매수·좌석을 고른다. 여러 사람이 같은 좌석을 동시에 누르면 한 사람만 성공하고, 나머지에게는 "이미 선택된 좌석입니다"가 표시된다. 선택을 마치면 5분 안에 결제한다 |
+| 🎟️ **선착순 예매** | 대기열에서 내 순번과 예상 대기 시간을 보다가 입장하면 구역·매수·좌석을 고른다. 여러 사람이 같은 좌석을 동시에 누르면 한 사람만 성공하고, 나머지에게는 "이미 선택된 좌석입니다"가 표시된다. 선택을 마치면 5분 안에 결제한다 |
 | 🎲 **추첨 예매** | 응모하면서 자동결제 카드를 등록해 둔다. 추첨이 끝나면 당첨자에게 좌석이 자동으로 배정되고 등록한 카드로 결제된다. 결제에 실패하면 예비 당첨자가 자리를 이어받는다 |
 | 💬 **AI 예매 상담** | 취소·환불·추첨 규정을 물으면 규정 문서에서 찾은 근거와 함께 답한다. 상담 서비스가 멈춰도 예매와 결제는 그대로 동작한다 |
 
@@ -140,19 +140,19 @@ flowchart LR
 모든 요청은 Gateway 한 곳으로 들어온다. 넘친 요청은 인증보다 먼저 거절해, 이미 받은 요청이 끝까지 처리될 자리를 지킨다.
 
 ```mermaid
-flowchart LR
+flowchart TB
   U(["사용자"]) -->|HTTPS| N["nginx"]
   N --> G1
 
   subgraph GW["API Gateway"]
     direction LR
-    G1["동시 처리 상한 64"] --> G2["JWT 검증"]
-    G2 --> G3["로그아웃된 토큰 확인<br/>(Redis)"]
-    G3 --> G4["입장 토큰 검증"]
+    G1["① 동시 처리 상한 64"] --> G2["② JWT 검증"]
+    G2 --> G3["③ 로그아웃된 토큰 확인<br/>Redis"]
+    G3 --> G4["④ 입장 토큰 검증"]
   end
 
-  G1 -.->|"넘치면 바로 503<br/>+ Retry-After"| U
-  GW -.->|"외부에서 /internal/** 는 404"| U
+  G1 -.->|넘치면| R503["503 + Retry-After<br/>인증보다 먼저 거절"]
+  G2 -.->|"외부에서 /internal/**"| R404["404"]
   G4 --> USR["User"]
   G4 --> RES["Reservation<br/>공연·대기열·선점·예매·추첨"]
   G4 --> PAY["Payment"]
@@ -196,7 +196,7 @@ sequenceDiagram
   P->>P: TX1 REQUESTED 저장
   P->>PG: 승인 요청(트랜잭션 밖)
   PG-->>P: 승인 / 거절 / 응답 없음
-  P->>P: TX2 APPROVED·DECLINED·UNKNOWN + Outbox
+  P->>P: TX2 APPROVED·DECLINED + Outbox<br/>(응답 없으면 UNKNOWN으로 두고 재조회)
   P-)K: payment.result
   K-)R: 결과 소비(처리 이력으로 중복 차단)
   alt 승인
@@ -217,16 +217,11 @@ sequenceDiagram
 
 예매와 결제는 상태를 "이전 상태일 때만" 바꾸는 조건부 갱신으로 옮긴다. 결과를 모를 때는 실패로 단정하지 않고 `UNKNOWN`으로 두었다가 다시 조회해 확정한다.
 
-<table>
-<tr>
-<th width="50%">예매(Reservation)</th>
-<th width="50%">결제(Payment)</th>
-</tr>
-<tr>
-<td>
+**예매(Reservation)**
 
 ```mermaid
 stateDiagram-v2
+  direction LR
   [*] --> HELD: 좌석 선점
   HELD --> CONFIRMED: 결제 승인
   HELD --> RELEASED: 결제 거절(보상)
@@ -234,14 +229,14 @@ stateDiagram-v2
   CONFIRMED --> CANCELED: 예매 취소·환불
 ```
 
-</td>
-<td>
+**결제(Payment)**
 
 ```mermaid
 stateDiagram-v2
+  direction LR
   [*] --> REQUESTED
-  REQUESTED --> APPROVED
-  REQUESTED --> DECLINED
+  REQUESTED --> APPROVED: 승인
+  REQUESTED --> DECLINED: 거절
   REQUESTED --> UNKNOWN: 응답 시간 초과
   UNKNOWN --> APPROVED: 재조회
   UNKNOWN --> DECLINED: 재조회
@@ -253,25 +248,21 @@ stateDiagram-v2
   APPROVED --> REFUNDED: 환불
 ```
 
-</td>
-</tr>
-</table>
-
 ### 추첨과 자동결제
 
 추첨 당첨은 "시스템이 대신 선점한 일반 예매"로 다룬다. 당첨자에게 일반 예매와 같은 `HELD` 예매를 만들고 같은 결제 경로로 보내므로, 확정·만료·환불을 추첨용으로 새로 만들지 않았다.
 
 ```mermaid
-flowchart LR
-  E["응모<br/>카드 등록(빌링키)"] --> CL["마감"]
+flowchart TB
+  E["응모 · 카드 등록(빌링키)"] --> CL["마감"]
   CL --> DR["추첨<br/>WON · WAITLISTED · LOST"]
-  DR --> AS["배정 워커<br/>예매 HELD 생성"]
-  AS -->|"payment.command<br/>(Outbox)"| PB["Payment<br/>빌링키 자동결제"]
+  DR --> AS["배정 워커<br/>당첨자마다 예매 HELD 생성"]
+  AS -->|"payment.command (Outbox)"| PB["Payment<br/>빌링키 자동결제"]
   PB -->|payment.result| RS{"결과"}
-  RS -->|승인| PAID["PAID<br/>예매 확정"]
+  RS -->|승인| PAID["PAID · 예매 확정"]
   RS -->|실패| FL["FAILED"]
   FL --> SC["승계 워커<br/>다음 예비 당첨자를 WON으로"]
-  SC --> AS
+  SC -->|남은 좌석 배정| AS
 ```
 
 자세한 흐름과 시간 예산은 [추첨 설계](docs/design/lottery/README.md)에 있다.
@@ -317,16 +308,13 @@ main에 머지하면 GitHub Actions가 이미지 9개를 커밋 번호로 빌드
 
 ```mermaid
 flowchart LR
-  M["main 머지"] --> GA["GitHub Actions<br/>이미지 9개 빌드<br/>(커밋 번호 태그)"]
-  GA --> GH[("GHCR")]
-  GH --> J["Jenkins"]
-  J --> EC2["EC2 배포 서버<br/>컨테이너 21개"]
-  EC2 --> CK{"헬스 체크<br/>+ 스모크 테스트"}
+  GA["main 머지<br/>GitHub Actions<br/>이미지 9개 빌드"] --> GH[("GHCR<br/>커밋 번호 태그")]
+  GH --> J["Jenkins<br/>EC2에 반영<br/>컨테이너 21개"]
+  J --> CK{"헬스 체크<br/>스모크 테스트"}
   CK -->|통과| OK["배포 성공"]
   CK -->|실패| RB["직전 성공 커밋으로<br/>자동 되돌림"]
   OK -.-> SL["Slack"]
   RB -.-> SL
-  EC2 -.->|"Prometheus → Alertmanager"| SL
 ```
 
 <table>
