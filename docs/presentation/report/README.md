@@ -7,7 +7,7 @@
 | [결과보고서_05조_이선좌.pdf](결과보고서_05조_이선좌.pdf) | 제출용 PDF 23쪽(1920×1080) |
 | [report.html](report.html) | 원본. 장마다 `<section class="slide">` 하나 |
 | [render.sh](render.sh) | Chrome headless로 PDF와 장별 PNG(`slide-N.png`, 커밋하지 않음)를 만든다 |
-| [figures/](figures/) | 새로 그린 ERD 두 장(예매 DB, 결제·사용자 DB). Mermaid HTML 원본과 PNG |
+| [figures/](figures/) | 새로 그린 ERD 두 장(예매 DB, 결제·사용자 DB)과 설계 의도. `erd-gen.py`가 표 자리를 직접 정한 HTML을 만들고, Chrome으로 3200×1800 PNG를 뽑는다 |
 
 ## 형식
 

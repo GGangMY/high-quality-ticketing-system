@@ -24,16 +24,16 @@
 | bust-tense, bust-focus, bust-dejected, bust-joy, bust-panic, bust-relief, bust-surprise | 표정별 반신. `bust-focus`는 영상용으로 다시 그린 판 |
 | jump, jump-fists | 점프(`jump-fists`는 주먹을 쥔 판) |
 | thumbs | 엄지척 |
-| cross-x, thinking | 두 팔로 X를 그린 반신, 턱에 손을 댄 고민 반신(11/18 발표 덱 v4의 "AI 판단 · 거부/부분 수용" 장) |
+| cross-x, thinking | 손바닥을 편 채 손목을 교차해 X를 그린 상반신, 턱에 손을 댄 고민 상반신(11/18 발표 덱 v4의 "AI 판단 · 거부/부분 수용" 장) |
 
 ## poses: 발표 덱용 반신 (1024×1024, 11/18)
 
-발표 덱 v4에서 AI 제안을 거부한 장과 부분 수용한 장에 넣으려고 그렸다. 위 인물 시트 두 장과 엄지척 반신을 참조로 codex CLI 기본 이미지 생성으로 만들었고, 실제 프롬프트는 [2026-11-18-prompts.md](poses/2026-11-18-prompts.md)에 있다. 오려 낸 판은 `cutouts/`의 cross-x, thinking이다.
+발표 덱 v4에서 AI 제안을 거부한 장과 부분 수용한 장에 넣으려고 그렸다. 첫 판(허리까지, X는 주먹)을 사용자 요청으로 안도한 반신(`bust-relief`)처럼 상체 절반만 나오게, X는 손을 펴게 다시 그렸다. 인물 시트 두 장, `bust-relief`, 첫 판을 참조로 codex CLI 기본 이미지 생성으로 만들었고, 실제 프롬프트는 [2026-11-18-prompts.md](poses/2026-11-18-prompts.md)에 있다. 오려 낸 판은 `cutouts/`의 cross-x, thinking이다.
 
 | 파일 | 내용 |
 |---|---|
-| [harin-cross-x.webp](poses/harin-cross-x.webp) | 두 팔을 가슴 앞에서 교차해 X를 그린 반신, 단호한 표정 |
-| [harin-thinking.webp](poses/harin-thinking.webp) | 오른손을 턱에 대고 왼팔로 받친 고민 반신 |
+| [harin-cross-x.webp](poses/harin-cross-x.webp) | 손바닥을 편 채 손목을 가슴 앞에서 교차해 X를 그린 상반신, 단호한 표정 |
+| [harin-thinking.webp](poses/harin-thinking.webp) | 오른손을 턱에 대고 고개를 기울인 고민 상반신 |
 
 ## keys: 장면 그림 (1536×1024)
 
