@@ -2,6 +2,12 @@
 
 질문 노트는 `qna/YYYY-MM-DD-<slug>.md`, 하루 정리는 `daily/YYYY-MM-DD.md`에 쓴다. 최신이 위로 온다.
 
+## 종합 학습자료
+
+| 날짜 | 내용 | 문서 |
+|---|---|---|
+| 2026-11-18 | 처음 보는 사람용 종합 자료: 구조와 흐름, API, 장애 대응, 부하 측정, 인프라, ADR 결정 지도, 진행 과정, 지금 방식이 합리적인 이유(11-11 판을 11-18 dev 기준으로 갱신) | [guide/README.md](guide/README.md) |
+
 ## 질문 노트
 
 | 날짜 | 질문 | 노트 |
@@ -23,12 +29,14 @@
 | 2026-11-12 | 접수형 선점(ISE-16)에서 남은 다섯 가지 결정의 트레이드오프와 추천안 | [qna/2026-11-12-ise16-remaining-decisions-tradeoffs.md](qna/2026-11-12-ise16-remaining-decisions-tradeoffs.md) |
 | 2026-11-12 | 접수형 선점에서 여러 구역 좌석 요청의 메시지 키를 어떻게 정할 것인가 | [qna/2026-11-12-async-seat-hold-message-key-options.md](qna/2026-11-12-async-seat-hold-message-key-options.md) |
 | 2026-11-12 | 좌석 배치 캐시를 로컬 메모리에 둘까 Redis에 둘까 (개념부터 측정·원인까지) | [qna/2026-11-12-p4b-p4c-local-cache-not-redis.md](qna/2026-11-12-p4b-p4c-local-cache-not-redis.md) |
+| 2026-11-12 | PR 458번과 측정 브랜치(F) 이후 성능 지표를 더 끌어올릴 방안과 트레이드오프 | [qna/2026-11-12-pr458-further-performance-improvements.md](qna/2026-11-12-pr458-further-performance-improvements.md) |
 | 2026-11-11 | 좌석 선점과 부하 경로에서 로컬 캐시·Redis 캐시로 더 개선할 부분은 무엇인가 | [qna/2026-11-11-seathold-cache-improvements.md](qna/2026-11-11-seathold-cache-improvements.md) |
 | 2026-11-11 | CPU를 늘리지 않고 Gateway가 부하를 감당하게 하는 기술은 무엇인가 | [qna/2026-11-11-gateway-load-techniques-beyond-cpu.md](qna/2026-11-11-gateway-load-techniques-beyond-cpu.md) |
 | 2026-11-11 | 큰 좌석 응답 때문에 Gateway 메모리가 차는 문제를 다른 기술로 극복할 방법은 무엇인가 | [qna/2026-11-11-overcome-large-seat-response.md](qna/2026-11-11-overcome-large-seat-response.md) |
 | 2026-11-11 | CPU 상한을 건 스트레스에서 Gateway가 OOMKilled로 죽은 원인은 무엇인가 | [qna/2026-11-11-gateway-oomkilled-under-cpu-limit.md](qna/2026-11-11-gateway-oomkilled-under-cpu-limit.md) |
 | 2026-11-11 | local 부하 측정에서 CPU 상한을 걸어야 하는 이유는 무엇인가 | [qna/2026-11-11-why-cpu-limit-in-load-test.md](qna/2026-11-11-why-cpu-limit-in-load-test.md) |
 | 2026-11-11 | 좌석 선점 k6 부하 측정을 돌아보면 불필요한 단계와 빠진 개선은 무엇이었나 | [qna/2026-11-11-k6-seathold-scenario-retrospective.md](qna/2026-11-11-k6-seathold-scenario-retrospective.md) |
+| 2026-11-11 | 좌석 선점에 Kafka 접수형을 도입하면 어떻게 동작하고 무엇이 좋아지나 | [qna/2026-11-11-seathold-kafka-async-effects.md](qna/2026-11-11-seathold-kafka-async-effects.md) |
 | 2026-11-10 | 잠금이 걸린 데이터에 트래픽을 몰아 보내는 부하 테스트로 무엇을 얻을 수 있나 | [qna/2026-11-10-hot-lock-load-test.md](qna/2026-11-10-hot-lock-load-test.md) |
 | 2026-11-10 | K1 단계 측정(F)까지 끝낸 뒤 성능을 더 끌어올릴 방법은 무엇인가 | [qna/2026-11-10-performance-beyond-k1-results.md](qna/2026-11-10-performance-beyond-k1-results.md) |
 | 2026-11-10 | 좌석 조회 P4a에서 dev 코드와 측정 브랜치 코드는 무엇이 다른가 | [qna/2026-11-10-p4a-jpql-vs-native-projection.md](qna/2026-11-10-p4a-jpql-vs-native-projection.md) |
