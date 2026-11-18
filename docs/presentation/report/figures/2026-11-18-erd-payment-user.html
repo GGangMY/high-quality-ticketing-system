@@ -1,0 +1,65 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;background:#fff;font-family:'Pretendard',sans-serif;letter-spacing:-0.02em;word-break:keep-all}
+  .wrap{width:1600px;height:900px;box-sizing:border-box;padding:28px 40px 20px;display:flex;flex-direction:column}
+  h1{margin:0;font-size:30px;font-weight:800;color:#151515}
+  p.s{margin:6px 0 0;font-size:16px;color:#666}
+  .d{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;margin-top:10px}
+  .d pre{margin:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center}
+  .d svg{max-width:100%!important;max-height:100%!important;height:100%;width:100%}
+  .f{font-size:12px;color:#999;display:flex;justify-content:space-between}
+  .d.two{display:grid;grid-template-columns:1fr 360px;gap:32px}
+  .side{display:flex;flex-direction:column;gap:16px;justify-content:center}
+  .side .cap{font-size:16px;font-weight:700;color:#E8344E}
+  .side table{border-collapse:collapse;width:100%;font-size:15px;border:1px solid #E8344E}
+  .side th{background:#FDEEF0;font-weight:600;padding:6px 10px;text-align:center;border-bottom:1px solid #E8344E}
+  .side td{padding:5px 10px;border-top:1px solid #f0d0d5;color:#333}
+  .side td.n{color:#777;font-size:14px}
+</style></head><body><div class="wrap">
+<h1>ERD ② 결제 DB (payment) · 사용자 DB (user) · 공통 테이블</h1>
+<p class="s">DB 사이에는 FK가 없고 ID 값으로만 잇는다. 결제는 PG 호출 전에 pg_order_id를 저장해, 응답이 없어도 다시 조회할 수 있다</p>
+<div class="d two"><pre class="mermaid">
+erDiagram
+  payments ||--o{ payment_status_histories : logs
+  payments ||--o| refunds : "환불"
+  users ||..o{ payments : "user_id (서비스 간 ID)"
+  users ||..o{ billing_keys : "user_id"
+
+  users { bigint id PK
+    varchar email UK
+    varchar password_hash "BCrypt"
+    varchar role "USER ADMIN" }
+  payments { bigint id PK
+    bigint reservation_id UK "예매당 하나"
+    bigint user_id
+    numeric amount
+    varchar method "CARD BILLING"
+    varchar status "REQUESTED APPROVED UNKNOWN ..."
+    uuid pg_order_id UK "PG 호출 전 저장"
+    timestamptz next_check_at "재조회 시각" }
+  payment_status_histories { bigint id PK
+    bigint payment_id FK
+    varchar from_status
+    varchar to_status }
+  refunds { bigint id PK
+    bigint payment_id FK "결제 1건당 1건"
+    uuid pg_refund_id UK "PG 멱등키"
+    varchar status "REQUESTED REFUNDED UNKNOWN ..." }
+  billing_keys { bigint id PK
+    bigint user_id
+    varchar billing_key_enc "AES-256-GCM"
+    varchar status "ACTIVE REVOKED" }
+</pre>
+<div class="side"><div class="cap">공통 테이블 · 예매 DB와 결제 DB에 각각</div>
+<table><tr><th colspan="2">outbox_events</th></tr><tr><td>event_id</td><td>UK</td></tr><tr><td>topic · payload</td><td>jsonb</td></tr><tr><td>status</td><td>PENDING SENT FAILED</td></tr><tr><td colspan="2" class="n">DB에 같이 쓰고 릴레이가 Kafka로 발행</td></tr></table>
+<table><tr><th colspan="2">processed_events</th></tr><tr><td>event_id · consumer_group</td><td>PK</td></tr><tr><td colspan="2" class="n">같은 이벤트를 두 번 처리하지 않음</td></tr></table>
+<table><tr><th colspan="2">idempotency_records</th></tr><tr><td>user_id · idem_key</td><td>PK</td></tr><tr><td>response_body</td><td>jsonb</td></tr><tr><td>expires_at</td><td>24시간</td></tr><tr><td colspan="2" class="n">같은 요청 재전송에 같은 응답</td></tr></table>
+</div></div>
+<div class="f"><span>감사 컬럼과 일부 컬럼 생략. 전체 정의는 SA MASTER 12-2~12-6. outbox·처리 이력·멱등 기록은 예매·결제 DB에 각각 있음</span><span>이선좌 5조</span></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:false,theme:'base',er:{useMaxWidth:true,layoutDirection:'LR'},
+  themeVariables:{fontFamily:'Pretendard',fontSize:'18px',primaryColor:'#FDEEF0',primaryBorderColor:'#E8344E',primaryTextColor:'#151515',lineColor:'#9AA0A8',tertiaryColor:'#fff',attributeBackgroundColorOdd:'#ffffff',attributeBackgroundColorEven:'#F7F7F7'}});
+mermaid.run({querySelector:'.mermaid'});
+</script></body></html>

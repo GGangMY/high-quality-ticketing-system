@@ -1,0 +1,88 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;background:#fff;font-family:'Pretendard',sans-serif;letter-spacing:-0.02em;word-break:keep-all}
+  .wrap{width:1600px;height:900px;box-sizing:border-box;padding:28px 40px 20px;display:flex;flex-direction:column}
+  h1{margin:0;font-size:30px;font-weight:800;color:#151515}
+  p.s{margin:6px 0 0;font-size:16px;color:#666}
+  .d{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;margin-top:10px}
+  .d pre{margin:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center}
+  .d svg{max-width:100%!important;max-height:100%!important;height:100%;width:100%}
+  .f{font-size:12px;color:#999;display:flex;justify-content:space-between}
+</style></head><body><div class="wrap">
+<h1>ERD ① 예매 DB (reservation)</h1>
+<p class="s">공연·좌석·대기열 선점·예매·추첨이 한 DB에 있다. 판매 판정은 schedule_seats 조건부 UPDATE와 reservation_seats 부분 유니크 인덱스</p>
+<div class="d"><pre class="mermaid">
+erDiagram
+  venues ||--o{ venue_seats : has
+  venues ||--o{ schedules : hosts
+  concerts ||--o{ schedules : has
+  schedules ||--o{ schedule_seats : has
+  venue_seats ||--o{ schedule_seats : "회차별"
+  schedules ||--o{ user_schedule_quotas : "매수 한도"
+  schedules ||--o{ seat_hold_requests : "접수형"
+  schedules ||--o{ reservations : has
+  reservations ||--|{ reservation_seats : contains
+  schedule_seats ||--o{ reservation_seats : "held by"
+  reservation_seats ||--o| tickets : issues
+  reservations ||--o{ reservation_status_histories : logs
+  schedules ||--o| lotteries : "추첨"
+  lotteries ||--o{ lottery_entries : receives
+  lottery_entries |o--o| reservations : "당첨 시"
+
+  venues { bigint id PK
+    varchar name }
+  venue_seats { bigint id PK
+    bigint venue_id FK
+    varchar section
+    varchar grade "VIP R S" }
+  concerts { bigint id PK
+    varchar title }
+  schedules { bigint id PK
+    bigint concert_id FK
+    timestamptz open_at "예매 오픈"
+    smallint max_per_user "기본 4" }
+  schedule_seats { bigint id PK
+    bigint schedule_id FK
+    numeric price
+    varchar status "AVAILABLE HELD SOLD" }
+  user_schedule_quotas { bigint user_id PK
+    bigint schedule_id PK
+    smallint held_count }
+  seat_hold_requests { uuid request_id PK
+    bigint schedule_id FK
+    varchar status "REQUESTED HELD REJECTED" }
+  reservations { bigint id PK
+    varchar reservation_no UK
+    bigint user_id "서비스 간 ID"
+    varchar status "HELD CONFIRMED EXPIRED ..."
+    timestamptz hold_expires_at
+    varchar source "GENERAL LOTTERY" }
+  reservation_seats { bigint id PK
+    bigint reservation_id FK
+    bigint schedule_seat_id FK "부분 유니크"
+    varchar status }
+  tickets { bigint id PK
+    varchar ticket_no UK
+    bigint reservation_seat_id FK }
+  reservation_status_histories { bigint id PK
+    bigint reservation_id FK
+    varchar from_status
+    varchar to_status }
+  lotteries { bigint id PK
+    bigint schedule_id FK
+    int seat_count
+    varchar status "OPEN CLOSED DRAWN DONE" }
+  lottery_entries { bigint id PK
+    bigint lottery_id FK
+    bigint user_id
+    varchar status "ENTERED WON WAITLISTED ..."
+    int draw_rank "예비 승계 순서" }
+</pre></div>
+<div class="f"><span>감사 컬럼과 일부 컬럼 생략. 전체 정의는 SA MASTER 12-2~12-6. outbox·처리 이력·멱등 기록은 예매·결제 DB에 각각 있음</span><span>이선좌 5조</span></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:false,theme:'base',er:{useMaxWidth:true,layoutDirection:'LR'},
+  themeVariables:{fontFamily:'Pretendard',fontSize:'18px',primaryColor:'#FDEEF0',primaryBorderColor:'#E8344E',primaryTextColor:'#151515',lineColor:'#9AA0A8',tertiaryColor:'#fff',attributeBackgroundColorOdd:'#ffffff',attributeBackgroundColorEven:'#F7F7F7'}});
+mermaid.run({querySelector:'.mermaid'});
+</script></body></html>
