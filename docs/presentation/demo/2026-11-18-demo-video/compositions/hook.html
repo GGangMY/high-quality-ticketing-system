@@ -1,0 +1,32 @@
+<template>
+  <style>
+    @font-face { font-family: 'Pretendard'; src: url('assets/fonts/PretendardVariable.woff2') format('woff2'); font-weight: 100 900; }
+    #root { position: absolute; inset: 0; background: #14101A; font-family: 'Pretendard', sans-serif; overflow: hidden; }
+    #hk-cam { position: absolute; left: 0; top: -100px; width: 1920px; height: 1280px; }
+    #hk-bg { position: absolute; inset: 0; width: 1920px; height: 1280px; }
+    #hk-clock { position: absolute; left: 110px; top: 120px; color: #FFF8EE; }
+    #hk-clock .k { font-size: 40px; font-weight: 800; color: #FFD23F; letter-spacing: -0.5px; }
+    #hk-clock .t { position: relative; font-size: 170px; font-weight: 900; letter-spacing: -6px; line-height: 1; font-variant-numeric: tabular-nums; margin-top: 8px; height: 170px; width: 900px; }
+    #hk-clock .t span { position: absolute; left: 0; top: 0; }
+  </style>
+  <div id="root" data-composition-id="hook" data-width="1920" data-height="1080">
+    <div id="hk-cam" data-layout-allow-overflow><img id="hk-bg" src="assets/img/key-01-desk.webp" alt="" /></div>
+    <div id="hk-clock">
+      <p class="k">티켓 오픈까지</p>
+      <div class="t"><span id="hk-s0">00:00:03</span><span id="hk-s1" style="opacity:0">00:00:02</span><span id="hk-s2" style="opacity:0">00:00:01</span></div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo('#hk-cam', { scale: 1 }, { scale: 1.06, transformOrigin: '70% 40%', duration: 4.0, ease: 'none' }, 0);
+    tl.fromTo('#hk-clock', { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.45, ease: 'power4.out' }, 0.1);
+    // 초가 바뀔 때마다 숫자가 툭 떨어진다
+    [1, 2].forEach((i) => {
+      const at = 0.3 + i * 1.1;
+      tl.set('#hk-s' + (i - 1), { opacity: 0 }, at);
+      tl.set('#hk-s' + i, { opacity: 1 }, at);
+      tl.fromTo('#hk-s' + i, { y: -26 }, { y: 0, duration: 0.3, ease: 'back.out(2.2)' }, at);
+    });
+    window.__timelines['hook'] = tl;
+  </script>
+</template>

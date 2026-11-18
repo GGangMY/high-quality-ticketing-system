@@ -1,0 +1,37 @@
+<template>
+  <style>
+    @font-face { font-family: 'Pretendard'; src: url('assets/fonts/PretendardVariable.woff2') format('woff2'); font-weight: 100 900; }
+    #root { position: absolute; inset: 0; background: #2F3BE8; font-family: 'Pretendard', sans-serif; overflow: hidden; color: #F4F1FF; }
+    #so-brand { position: absolute; left: 110px; top: 110px; display: flex; align-items: center; gap: 26px; }
+    #so-logo { width: 120px; height: 120px; }
+    #so-name { font-size: 110px; font-weight: 900; letter-spacing: -4px; line-height: 1; }
+    #so-line { position: absolute; left: 114px; top: 262px; font-size: 44px; font-weight: 800; color: #FFD23F; }
+    .so-card { position: absolute; top: 420px; width: 380px; height: 330px; box-sizing: border-box; background: #FFFFFF; color: #120F1A; border: 3px solid #120F1A; border-radius: 28px; box-shadow: 10px 10px 0 #120F1A; padding: 34px 32px; }
+    .so-card .c { display: inline-block; font-size: 28px; font-weight: 800; padding: 6px 16px 8px; border-radius: 10px; border: 3px solid #120F1A; }
+    .so-card h3 { font-size: 46px; font-weight: 900; letter-spacing: -1.5px; line-height: 1.2; margin-top: 26px; word-break: keep-all; }
+    .so-card p.s { font-size: 28px; font-weight: 600; color: #4B4659; line-height: 1.4; margin-top: 16px; word-break: keep-all; }
+    #so-c1 { left: 110px; } #so-c2 { left: 520px; } #so-c3 { left: 930px; }
+    #so-harin { position: absolute; left: 1360px; top: 300px; width: 500px; height: 780px; }
+    #so-harin img { position: absolute; left: 0; bottom: 0; width: 500px; height: 780px; object-fit: contain; object-position: bottom; }
+  </style>
+  <div id="root" data-composition-id="solution" data-width="1920" data-height="1080">
+    <div id="so-brand"><img id="so-logo" src="assets/img/logo.svg" alt="" /><p id="so-name">이선좌</p></div>
+    <p id="so-line">공정하고 정확한 예매</p>
+    <div id="so-c1" class="so-card"><p class="c" style="background:#7EE0D4">줄이 길어도</p><h3>대기열로 줄 세우기</h3><p class="s">몰려도 쓰러지지 않고 순서대로 들여보냄</p></div>
+    <div id="so-c2" class="so-card"><p class="c" style="background:#FF3D7F">표는 정확하게</p><h3>같은 좌석은 한 사람에게</h3><p class="s">판매는 DB가 판정해 두 번 팔리지 않음</p></div>
+    <div id="so-c3" class="so-card"><p class="c" style="background:#FFD23F">손이 빠르지 않아도</p><h3>좌석 일부는 추첨</h3><p class="s">당첨되면 좌석 배정과 결제까지 자동</p></div>
+    <div id="so-harin"><img src="assets/img/harin-thumbs.webp" alt="" /></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const T = { c1: 1.1, c2: 2.9, c3: 5.4 };
+    tl.fromTo('#so-logo', { scale: 0.3, rotation: -12 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(1.8)' }, 0.05);
+    tl.fromTo('#so-name', { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.42, ease: 'power4.out' }, 0.2);
+    tl.fromTo('#so-line', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'power3.out' }, 0.45);
+    tl.fromTo('#so-harin img', { y: 120, scaleY: 0.88 }, { y: 0, scaleY: 1, transformOrigin: '50% 100%', duration: 0.5, ease: 'back.out(1.8)' }, 0.4);
+    [['#so-c1', T.c1], ['#so-c2', T.c2], ['#so-c3', T.c3]].forEach(([id, at]) => {
+      tl.fromTo(id, { y: 60, opacity: 0, rotation: 3 }, { y: 0, opacity: 1, rotation: 0, duration: 0.42, ease: 'back.out(1.8)' }, at);
+    });
+    window.__timelines['solution'] = tl;
+  </script>
+</template>
