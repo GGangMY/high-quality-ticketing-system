@@ -42,6 +42,7 @@
 
 | 날짜 | 판단 대상 | 판단자 | AI | 판단 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-18 | 배포 서버의 Ops 명령으로 닫을 수 없는 환불 3번(Mock PG 원장 유실)을 묵음으로 두자는 AI 안 대신, 이번만 SQL 예외로 FAILED 종결하고 이력·감사 기록을 남김 | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-18-refund3-sql-exception-close-failed.md) |
 | 2026-11-18 | 결과보고서와 발표 덱을 합친 v4에서 AI가 추천한 보고서 목차 뼈대 대신 발표 7구간 흐름을 유지하고 보고서 장을 끼워 넣음 | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-18-deck-v4-keep-talk-flow.md) |
 | 2026-11-18 | 배포 환경 재선점 403의 원인 분석과 프런트 수정안(ISE-207)을 받아 프런트 담당 대신 직접 고치기로 함 | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-18-ise207-front-entry-token-fix.md) |
 | 2026-11-17 | README를 브로셔 내용으로 꾸미자는 AI 안 대신, 배포 서버를 내린 뒤에도 읽히도록 프로젝트를 드러내는 README를 따로 쓰기로 함(ISE-308) | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-17-readme-not-brochure-copy.md) |
