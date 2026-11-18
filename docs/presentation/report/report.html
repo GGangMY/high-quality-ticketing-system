@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>결과보고서_05조_이선좌</title>
+<style>
+  :root {
+    --red: #E8344E;
+    --red-soft: #FDEEF0;
+    --pink: #F7A9B5;
+    --ink: #151515;
+    --ink-2: #444;
+    --ink-3: #8A8A8A;
+    --rule: #D9D9D9;
+    --soft: #F6F6F6;
+  }
+  @page { size: 1920px 1080px; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fff; }
+  body {
+    font-family: 'Pretendard', 'Pretendard Variable', sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.02em;
+    word-break: keep-all;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    position: relative; overflow: hidden;
+    page-break-after: always; break-after: page;
+    background: #fff;
+  }
+  body.single .slide:not(.on) { display: none; }
+  code { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; font-size: .86em; letter-spacing: 0; }
+
+  /* 표지 */
+  .cover { background: var(--red); color: #fff; }
+  .cover .org { position: absolute; left: 120px; top: 96px; font-size: 34px; font-weight: 700; line-height: 1.3; color: var(--pink); }
+  .cover .main { position: absolute; left: 120px; top: 270px; }
+  .cover .course { display: inline-block; font-size: 28px; font-weight: 600; padding: 10px 20px; border: 2px solid rgba(255,255,255,.7); border-radius: 999px; }
+  .cover .oneline { margin-top: 44px; font-size: 40px; font-weight: 500; line-height: 1.4; }
+  .cover .name { margin-top: 4px; font-size: 230px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.05; }
+  .cover .band { position: absolute; left: 0; right: 0; bottom: 0; height: 220px; background: #fff; color: var(--ink); display: flex; align-items: center; justify-content: space-between; padding: 0 120px; }
+  .cover .team { display: flex; align-items: center; gap: 24px; }
+  .cover .team .tag { background: var(--red); color: #fff; font-size: 44px; font-weight: 800; padding: 6px 20px; letter-spacing: -0.01em; }
+  .cover .team .tname { font-size: 48px; font-weight: 800; }
+  .cover .members { margin-top: 18px; font-size: 32px; font-weight: 600; color: var(--ink-2); }
+  .cover .tutor { display: flex; align-items: center; gap: 16px; font-size: 36px; font-weight: 700; }
+  .cover .tutor .tag { background: var(--ink); color: #fff; font-size: 30px; font-weight: 700; padding: 6px 16px; }
+
+  /* 목차 */
+  .toc { display: grid; grid-template-columns: 700px 1fr; padding: 0 120px; }
+  .toc .side { padding-top: 110px; }
+  .toc .side .en { font-size: 26px; font-weight: 700; letter-spacing: .18em; color: var(--red); }
+  .toc .side h1 { margin-top: 14px; font-size: 96px; font-weight: 800; letter-spacing: -0.04em; }
+  .toc .list { display: flex; flex-direction: column; justify-content: center; gap: 44px; }
+  .toc .item { display: flex; align-items: center; gap: 30px; padding-bottom: 44px; border-bottom: 1px solid var(--rule); }
+  .toc .item:last-child { border-bottom: 0; padding-bottom: 0; }
+  .toc .item .no { width: 84px; height: 72px; background: var(--red); color: #fff; font-size: 44px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .toc .item .t { font-size: 48px; font-weight: 800; letter-spacing: -0.035em; }
+
+  /* 본문 공통 */
+  .page { padding: 84px 120px 0; }
+  .head { display: flex; align-items: center; gap: 24px; padding-bottom: 26px; border-bottom: 3px solid var(--ink); }
+  .head .no { width: 84px; height: 72px; background: var(--red); color: #fff; font-size: 46px; font-weight: 800; display: flex; align-items: center; justify-content: center; letter-spacing: -0.01em; }
+  .head h1 { font-size: 56px; font-weight: 800; letter-spacing: -0.035em; }
+  .sub { margin-top: 36px; font-size: 32px; font-weight: 700; color: var(--red); }
+  .foot { position: absolute; left: 120px; right: 120px; bottom: 44px; display: flex; justify-content: space-between; font-size: 20px; color: var(--ink-3); font-weight: 500; }
+
+  .cols { display: grid; grid-template-columns: 1fr 780px; gap: 72px; margin-top: 40px; }
+  .cols.half { grid-template-columns: 1fr 1fr; gap: 64px; }
+  h3 { font-size: 30px; font-weight: 800; margin-bottom: 16px; }
+  h3 + ul { margin-bottom: 36px; }
+  ul.b { list-style: none; }
+  ul.b li { position: relative; padding-left: 30px; font-size: 29px; line-height: 1.5; font-weight: 500; color: var(--ink-2); margin-bottom: 10px; }
+  ul.b li::before { content: ""; position: absolute; left: 4px; top: 19px; width: 9px; height: 9px; background: var(--red); border-radius: 50%; }
+  ul.b li b { color: var(--ink); font-weight: 700; }
+  ul.b.sm li { font-size: 26px; margin-bottom: 8px; }
+  ul.b.sm li::before { top: 17px; }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: var(--red-soft); border-radius: 14px; padding: 40px 36px 44px; }
+  .card .n { width: 46px; height: 46px; border-radius: 50%; background: var(--red); color: #fff; font-size: 26px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .card .t { margin-top: 20px; font-size: 32px; font-weight: 800; }
+  .card .d { margin-top: 12px; font-size: 27px; line-height: 1.45; color: var(--ink-2); font-weight: 500; }
+
+  /* 세 기둥 카드 */
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 40px; }
+  .pillar { background: var(--red-soft); border-radius: 16px; padding: 40px 38px; display: flex; flex-direction: column; }
+  .pillar .k { font-size: 22px; font-weight: 800; color: var(--red); letter-spacing: .02em; }
+  .pillar .t { margin-top: 12px; font-size: 36px; font-weight: 800; line-height: 1.3; }
+  .pillar .d { margin-top: 20px; font-size: 26px; line-height: 1.5; color: var(--ink-2); font-weight: 500; flex: 1; }
+  .pillar .r { margin-top: 24px; padding-top: 20px; border-top: 1px solid #F3C9D0; font-size: 26px; font-weight: 800; color: var(--red); line-height: 1.4; }
+  .strip { margin-top: 28px; background: var(--soft); padding: 22px 30px; font-size: 25px; font-weight: 500; color: var(--ink-2); line-height: 1.5; }
+  .strip b { color: var(--ink); font-weight: 800; margin-right: 12px; }
+
+  /* 공통 표 */
+  table.t { width: 100%; border-collapse: collapse; margin-top: 28px; }
+  table.t th { font-size: 23px; font-weight: 700; color: var(--ink-3); text-align: left; padding: 0 18px 14px; border-bottom: 2px solid var(--ink); }
+  table.t td { font-size: 25px; line-height: 1.45; padding: 13px 18px; border-bottom: 1px solid var(--rule); vertical-align: middle; color: var(--ink-2); font-weight: 500; }
+  table.t td.p { font-weight: 800; color: var(--ink); }
+  table.t td.p span { color: var(--red); margin-right: 10px; }
+  table.t td.r { font-weight: 800; color: var(--red); }
+  table.t td.c { text-align: center; }
+  table.t td.nowrap, table.t th.nowrap { white-space: nowrap; }
+  table.t.sm td { font-size: 24px; padding: 12px 16px; }
+  table.t.sm th { font-size: 22px; padding: 0 16px 12px; }
+  table.t.roomy td { padding-top: 27px; padding-bottom: 27px; }
+  table.t.roomy .blank { height: 84px; }
+  .note { margin-top: 14px; font-size: 20px; color: var(--ink-3); }
+  .callout { margin-top: 30px; border-left: 8px solid var(--red); background: var(--soft); padding: 22px 30px; }
+  .callout .k { font-size: 24px; font-weight: 800; color: var(--red); }
+  .callout .v { margin-top: 8px; font-size: 27px; font-weight: 600; line-height: 1.45; }
+  .state { display: inline-block; font-size: 20px; font-weight: 800; padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
+  .state.ok { background: var(--red); color: #fff; }
+  .state.part { background: #fff; color: var(--red); border: 2px solid var(--red); }
+  .state.no { background: #E9E9E9; color: var(--ink-2); }
+  .blank { display: inline-block; width: 100%; height: 44px; border: 2px dashed #C9C9C9; border-radius: 6px; vertical-align: middle; }
+
+  /* 개발 환경 칸 */
+  .env { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 40px; }
+  .env .box { border: 2px solid var(--rule); border-radius: 14px; padding: 24px 26px; min-height: 300px; }
+  .env .box .k { font-size: 24px; font-weight: 800; color: var(--red); }
+  .env .box ul { list-style: none; margin-top: 16px; }
+  .env .box li { font-size: 25px; font-weight: 600; line-height: 1.55; color: var(--ink); }
+  .env .box li small { font-size: 20px; font-weight: 500; color: var(--ink-3); margin-left: 4px; }
+
+  /* 구현 기능 목록 */
+  .feat { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+  .feat div { background: var(--soft); border-radius: 10px; padding: 16px 20px; font-size: 25px; font-weight: 700; }
+  .feat div span { color: var(--red); margin-right: 10px; font-weight: 800; }
+  .feat div small { display: block; margin-top: 4px; font-size: 20px; font-weight: 500; color: var(--ink-3); }
+
+  /* 숫자 타일 */
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .tile { background: var(--red-soft); border-radius: 14px; padding: 40px 34px; }
+  .tile .v { font-size: 68px; font-weight: 800; color: var(--red); letter-spacing: -0.03em; line-height: 1.1; }
+  .tile .l { margin-top: 12px; font-size: 25px; font-weight: 600; color: var(--ink-2); line-height: 1.4; }
+
+  /* API 표 */
+  .api { display: grid; grid-template-columns: 1fr 1fr; gap: 0 48px; margin-top: 28px; }
+  .api table { width: 100%; border-collapse: collapse; }
+  .api th { font-size: 21px; text-align: left; color: var(--ink-3); font-weight: 700; padding: 0 10px 10px; border-bottom: 2px solid var(--ink); }
+  .api td { font-size: 23px; padding: 7px 10px; border-bottom: 1px solid var(--rule); color: var(--ink-2); font-weight: 500; vertical-align: middle; }
+  .api td.m { font-weight: 800; font-size: 19px; width: 86px; }
+  .api td.m.post { color: var(--red); }
+  .api td.m.get { color: var(--ink); }
+  .api td.u { font-family: 'SF Mono', Menlo, monospace; font-size: 20px; letter-spacing: -0.01em; color: var(--ink); }
+  .api tr.g td { font-size: 22px; font-weight: 800; color: var(--red); padding-top: 16px; border-bottom: 1px solid var(--ink); }
+  .resp { margin-top: 24px; background: var(--soft); padding: 18px 22px; font-size: 21px; line-height: 1.6; color: var(--ink-2); }
+  .resp b { color: var(--ink); }
+
+  /* 그림 장: 장 전체를 그림으로 채우고 위에 제목만 작게 */
+  .figure { background: #fff; }
+  .figure .bar { height: 76px; display: flex; align-items: center; gap: 14px; padding: 0 64px; font-size: 22px; font-weight: 600; color: var(--ink-3); }
+  .figure .bar .no { background: var(--red); color: #fff; font-size: 18px; font-weight: 800; padding: 4px 9px; }
+  .figure .bar b { color: var(--ink); font-weight: 800; }
+  .figure .bar .pg { margin-left: auto; font-size: 20px; font-weight: 500; }
+  .figure img { display: block; height: 984px; width: auto; margin: 0 auto; }
+  /* 위아래 맞춤: 머리말 아래부터 꼬리말 위까지를 내용이 고르게 채움 */
+  .page { display: flex; flex-direction: column; padding-bottom: 100px; }
+  .body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 26px; margin-top: 30px; }
+  .body > * { margin-top: 0 !important; }
+  .body > table.t, .body > .cols, .body > .pillars, .body > .env, .body > .api { flex: 1; }
+  .cols > div:not(.cards):not(.tiles) { display: flex; flex-direction: column; justify-content: space-between; gap: 30px; }
+  .grp { flex: none; display: flex; flex-direction: column; }
+  .grp.fill { flex: 1; }
+  .grp > h3 { flex: none; }
+  .grp > ul.b { margin: 0; }
+  .grp.fill > ul.b { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .grp.fill > ul.b li { margin: 0; }
+  .grp > table.t { flex: 1; margin-top: 4px; }
+  .cards, .tiles { grid-auto-rows: 1fr; }
+  .env { grid-auto-rows: 1fr; }
+  .env .box { min-height: 0; }
+  .api > div { display: flex; flex-direction: column; }
+  .api > div > table { flex: 1; }
+  .api > table { height: 100%; }
+  table.t.team td { padding-top: 14px; padding-bottom: 14px; }
+  table.t.team th.c, table.t td.c, table.t th.c { text-align: center; }
+  ul.duty { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 36px; }
+  ul.duty li { position: relative; padding-left: 20px; font-size: 23px; line-height: 1.45; color: var(--ink-2); font-weight: 500; }
+  ul.duty li::before { content: ""; position: absolute; left: 2px; top: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+  ul.duty li b { color: var(--red); font-weight: 800; }
+</style>
+</head>
+<body>
+
+<!-- 표지 -->
+<section class="slide cover">
+  <div class="org">팀스파르타주식회사<br>내일배움캠프</div>
+  <div class="main">
+    <div class="course">내일배움캠프 단기심화 10기 최종 프로젝트</div>
+    <div class="oneline">티켓 오픈 정각에 수천 명이 몰려도,<br>한 좌석은 한 사람에게만 파는 콘서트 예매 서버</div>
+    <div class="name">이선좌</div>
+  </div>
+  <div class="band">
+    <div>
+      <div class="team"><span class="tag">TEAM 5조</span><span class="tname">이선좌</span></div>
+      <div class="members">이강민, 안준현, 최권우, 반효승, 권영은</div>
+    </div>
+    <div class="tutor"><span class="tag">튜터</span><span>엄성문</span></div>
+  </div>
+</section>
+
+<!-- 목차 -->
+<section class="slide toc">
+  <div class="side">
+    <div class="en">CONTENTS</div>
+    <h1>목차</h1>
+  </div>
+  <div class="list">
+    <div class="item"><div class="no">01</div><div class="t">프로젝트 개요</div></div>
+    <div class="item"><div class="no">02</div><div class="t">프로젝트 팀 구성 및 역할</div></div>
+    <div class="item"><div class="no">03</div><div class="t">프로젝트 수행 절차 및 방법</div></div>
+    <div class="item"><div class="no">04</div><div class="t">프로젝트 수행 경과</div></div>
+    <div class="item"><div class="no">05</div><div class="t">자체 평가 의견</div></div>
+  </div>
+</section>
+
+<!-- 01 ① 배경·기획의도 -->
+<section class="slide page">
+  <div class="head"><div class="no">01</div><h1>프로젝트 개요</h1></div>
+  <div class="sub">① 주제 선정 배경 및 기획의도</div>
+  <div class="body">
+  <div class="cols">
+    <div>
+      <div class="grp"><h3>선정 배경</h3>
+      <ul class="b">
+        <li>인기 공연 티켓 오픈 정각 1초에 수천 명이 같은 버튼을 누르는 트래픽</li>
+        <li>서버를 늘리는 것으로는 해결할 수 없는 <b>네 가지 문제</b>를 주제로 선정</li>
+      </ul></div>
+      <div class="grp"><h3>기획의도</h3>
+      <ul class="b">
+        <li>몰려도 정확한 티켓팅: <b>한 좌석은 한 사람에게만 판매</b></li>
+        <li>손이 빠르지 않아도 예매 기회를 주는 <b>추첨 자동결제 예매</b></li>
+        <li>서비스명 '이선좌': 티켓팅에서 자주 보는 "이미 선택된 좌석입니다"의 줄임말</li>
+      </ul></div>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="n">1</div><div class="t">요청 폭주</div><div class="d">모든 요청 지연,<br>아무도 구매 불가</div></div>
+      <div class="card"><div class="n">2</div><div class="t">같은 좌석 동시 클릭</div><div class="d">한 좌석<br>이중 판매</div></div>
+      <div class="card"><div class="n">3</div><div class="t">결제 결과 모름</div><div class="d">결제 금액만 빠져나가거나<br>이중 결제</div></div>
+      <div class="card"><div class="n">4</div><div class="t">공정성</div><div class="d">손 빠른 사람만<br>구매 가능</div></div>
+    </div>
+  </div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 01 ① 차별화: 서비스 -->
+<section class="slide page">
+  <div class="head"><div class="no">01</div><h1>프로젝트 개요</h1></div>
+  <div class="sub">① 차별화 포인트: 서비스</div>
+  <div class="body">
+  <div class="pillars">
+    <div class="pillar">
+      <div class="k">정확성</div>
+      <div class="t">몰려도 한 좌석은<br>한 사람에게만</div>
+      <div class="d">판매 판정은 Redis가 아닌 DB가 담당. Redis가 느려지거나 데이터를 잃어도 판매 기록은 DB 기준으로 일치</div>
+      <div class="r">모든 배포 측정에서<br>중복 판매 0건</div>
+    </div>
+    <div class="pillar">
+      <div class="k">신뢰성</div>
+      <div class="t">결과를 끝까지<br>알려 주는 결제</div>
+      <div class="d">PG 응답이 없으면 실패로 단정하지 않고 "결제 확인 중"으로 보류, PG 재조회로 확정. 끝내 모르면 운영자가 확정</div>
+      <div class="r">결제 서버 강제 종료에도<br>PG 원장 34건 = 결제 DB 34건</div>
+    </div>
+    <div class="pillar">
+      <div class="k">공정성</div>
+      <div class="t">손이 빠르지 않아도<br>예매 기회</div>
+      <div class="d">좌석 일부를 추첨석으로 분리. 응모 때 카드 등록, 당첨 시 자동 배정·자동결제·발권, 결제 실패 시 예비 당첨자 승계</div>
+      <div class="r">당첨 약 2,000건<br>10분 안에 100% 결제</div>
+    </div>
+  </div>
+  <div class="strip"><b>기존 대안의 한계</b>여러 기기 접속·새로고침 연타·매크로 → 요청이 더 몰리고, 연타가 중복 요청을 만들고, 매크로와 회선 속도가 순서를 결정</div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 01 ① 차별화: 기술·설계 -->
+<section class="slide page">
+  <div class="head"><div class="no">01</div><h1>프로젝트 개요</h1></div>
+  <div class="sub">① 차별화 포인트: 기술·설계</div>
+  <div class="body">
+  <table class="t">
+    <colgroup><col style="width:400px"><col><col style="width:500px"></colgroup>
+    <tr><th>흔히 쓰는 방식</th><th>이선좌의 선택</th><th>근거·결과</th></tr>
+    <tr><td>Redis 분산 락으로 좌석 판정</td><td class="p">DB 조건부 UPDATE로 판정, 부분 유니크 인덱스를 마지막 방어선으로 배치</td><td class="r">중복 판매 0건, Redis 장애와 판매 기록 분리</td></tr>
+    <tr><td>PG 응답 시간 초과는 결제 실패</td><td class="p">"결과 모름(UNKNOWN)"으로 보류 후 재조회, 재시도 요청이 기존 결제를 이어받지 않게 차단</td><td class="r">장애 주입 중에도 PG 원장 = DB, 중복 승인 0건</td></tr>
+    <tr><td>입구 요청률 제한, 순번 폴링 간격 늘리기</td><td class="p">Gateway 맨 앞 동시 처리 상한 64, 리틀의 법칙으로 값 산출</td><td class="r">초당 2,000건에서 굿풋 +30%, p95 571 → 87ms</td></tr>
+    <tr><td>조정자가 지휘하는 오케스트레이션 SAGA</td><td class="p">결과 이벤트 구독형 코레오그래피 SAGA, 서명된 결제 토큰으로 순서 보장</td><td class="r">결제 거절 후 약 0.14초 만에 좌석 반환</td></tr>
+    <tr><td>기능마다 서비스 분리(5개)</td><td class="p">서비스 3개 + 모듈러 모놀리스, 분리 시점을 측정 지표로 정의</td><td class="r">대기열 분리 시 장애 격리 효과 없음을 근거로 판단</td></tr>
+    <tr><td>문서·이론값을 그대로 채택</td><td class="p">설정값은 배포 서버 측정으로 결정, AI 추천도 측정 후 채택·거부</td><td class="r">SKIP LOCKED 성공 83 → 56건 확인 후 거부</td></tr>
+  </table>
+  <div class="note">근거: docs/decisions ADR 0018·0048·0050·0052·0061, SA MASTER 7-1·14장. 측정은 배포 서버(EC2 m7i.xlarge 1대)와 같은 VPC의 별도 부하 발생기(k6)</div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 01 ② 프로젝트 내용 -->
+<section class="slide page">
+  <div class="head"><div class="no">01</div><h1>프로젝트 개요</h1></div>
+  <div class="sub">② 프로젝트 내용</div>
+  <div class="body">
+  <div class="cols half">
+    <div>
+      <div class="grp"><h3>컨셉</h3>
+      <ul class="b sm">
+        <li>아이돌 콘서트 <b>티켓 판매 대행 서비스</b>: 기획사에게 위탁받은 공연을 운영자가 등록하고 팬에게 판매</li>
+        <li>예매 경로 두 가지: <b>선착순 예매</b>(대기열 → 좌석 → 5분 안에 결제)와 <b>추첨 예매</b>(응모 → 추첨 → 자동결제)</li>
+      </ul></div>
+      <div class="grp"><h3>구현 기능</h3>
+      <div class="feat">
+        <div><span>1</span>대기열·입장 토큰</div>
+        <div><span>2</span>좌석 선점<small>동기형·접수형</small></div>
+        <div><span>3</span>예매↔결제 SAGA</div>
+        <div><span>4</span>결제 신뢰성<small>결과 모름 재조회·대사</small></div>
+        <div><span>5</span>취소·환불</div>
+        <div><span>6</span>추첨·자동결제</div>
+        <div><span>7</span>AI 예매 상담(RAG)</div>
+        <div><span>8</span>운영자 화면·장애 주입</div>
+      </div></div>
+    </div>
+    <div>
+      <div class="grp fill"><h3>발제 요구사항과의 연관성</h3>
+      <table class="t sm">
+        <colgroup><col style="width:220px"><col></colgroup>
+        <tr><th>발제 요구사항</th><th>이 도메인에서 푼 방식</th></tr>
+        <tr><td class="p">트래픽 스파이크</td><td>대기열, 좌석 배치 캐시, 동시 처리 상한, k6 부하 테스트</td></tr>
+        <tr><td class="p">동시성</td><td>조건부 UPDATE, 부분 유니크 인덱스, 매수 한도</td></tr>
+        <tr><td class="p">분산 트랜잭션</td><td>예매↔결제 SAGA, 보상 트랜잭션(좌석 반환·환불)</td></tr>
+        <tr><td class="p">장애 격리</td><td>Circuit Breaker, Bulkhead, Outbox, 멱등 처리, DLQ</td></tr>
+        <tr><td class="p">MSA 구성</td><td>Spring Cloud Gateway·Eureka·Config Server, 서비스별 DB</td></tr>
+        <tr><td class="p">Synthetic Data</td><td>LLM이 설계한 페르소나 8개로 가상 사용자 3,000명 생성</td></tr>
+      </table></div>
+    </div>
+  </div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 01 ③ 개발 환경 -->
+<section class="slide page">
+  <div class="head"><div class="no">01</div><h1>프로젝트 개요</h1></div>
+  <div class="sub">③ 개발 환경</div>
+  <div class="body">
+  <div class="env">
+    <div class="box"><div class="k">Backend</div><ul>
+      <li>Java 21</li><li>Spring Boot 4.1.2</li><li>Spring Cloud 2025.1.4<small>Gateway·Eureka·Config</small></li><li>Resilience4j</li><li>JPA · Flyway</li></ul></div>
+    <div class="box"><div class="k">Data · Messaging</div><ul>
+      <li>PostgreSQL 17<small>서비스별 3개</small></li><li>Redis 8</li><li>Kafka 4.1.1<small>KRaft</small></li></ul></div>
+    <div class="box"><div class="k">Frontend</div><ul>
+      <li>React 19</li><li>TypeScript · Vite</li><li>TanStack Query</li><li>MSW · Playwright</li></ul></div>
+    <div class="box"><div class="k">Infra · 배포</div><ul>
+      <li>AWS EC2<small>m7i.xlarge</small></li><li>Docker Compose</li><li>nginx<small>HTTPS</small></li><li>GitHub Actions · GHCR</li><li>Jenkins</li></ul></div>
+    <div class="box"><div class="k">관측</div><ul>
+      <li>Prometheus · Grafana</li><li>Loki · Alloy</li><li>Zipkin</li><li>Alertmanager · Slack</li></ul></div>
+    <div class="box"><div class="k">테스트 · 측정</div><ul>
+      <li>JUnit</li><li>Vitest</li><li>k6 1.0.0<small>별도 EC2</small></li></ul></div>
+    <div class="box"><div class="k">외부 연동</div><ul>
+      <li>토스페이먼츠<small>테스트 모드</small></li><li>Mock PG<small>측정·장애 주입</small></li><li>Claude API</li></ul></div>
+    <div class="box"><div class="k">협업 · AI</div><ul>
+      <li>GitHub · Linear</li><li>Notion</li><li>Claude Code · codex</li></ul></div>
+  </div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 01 ④ 프로젝트 구조 (그림 장) -->
+<section class="slide figure">
+  <div class="bar"><span class="no">01</span><span>프로젝트 개요</span><span>·</span><b>④ 프로젝트 구조</b><span class="pg"></span></div>
+  <img src="../architecture/2026-11-16-system-architecture.png" alt="시스템 구조도">
+</section>
+
+<!-- 01 ⑤ 활용 방안 및 기대 효과 -->
+<section class="slide page">
+  <div class="head"><div class="no">01</div><h1>프로젝트 개요</h1></div>
+  <div class="sub">⑤ 활용 방안 및 기대 효과</div>
+  <div class="body">
+  <div class="cols half">
+    <div>
+      <div class="grp fill"><h3>기대 효용: 관람객</h3>
+      <ul class="b">
+        <li>순번과 예상 대기 시간 표시로 결과를 모르는 대기 해소</li>
+        <li>고른 좌석은 5분 동안 확보, 결제가 늦어도 "확인 중" 뒤 결과 안내</li>
+        <li>손이 빠르지 않아도 추첨 응모만으로 예매 기회</li>
+      </ul></div>
+      <div class="grp fill"><h3>기대 효용: 판매 대행사</h3>
+      <ul class="b">
+        <li>중복 판매·결제 불일치에서 오는 환불·응대·정산 분쟁 예방</li>
+        <li>오픈 순간 초당 2,000건에서도 서버 재시작 없이 응답</li>
+        <li>알림 규칙 37개와 결제·예매 대사로 이상을 먼저 발견</li>
+      </ul></div>
+    </div>
+    <div>
+      <div class="grp fill"><h3>비즈니스 실무 활용성</h3>
+      <ul class="b">
+        <li>스포츠 경기, 한정 수량 판매처럼 <b>정각에 몰리는 판매</b>에 같은 구조 적용 가능</li>
+        <li>운영자 공연·좌석·추첨 설정, 대사 불일치는 기록·알림 뒤 운영자가 확정</li>
+        <li>실제 PG(토스페이먼츠 테스트 모드) 결제창·승인까지 연동</li>
+        <li>병목 위치와 서비스 분리 조건을 <b>측정 지표로 정의</b>, 장비 확장 판단 근거로 활용</li>
+        <li>배포는 커밋 SHA 이미지로 고정, 실패 시 직전 버전으로 자동 되돌림</li>
+      </ul></div>
+    </div>
+  </div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 02 팀 구성 및 역할 -->
+<section class="slide page">
+  <div class="head"><div class="no">02</div><h1>프로젝트 팀 구성 및 역할</h1></div>
+  <div class="body">
+  <table class="t team">
+    <colgroup><col style="width:190px"><col style="width:190px"><col></colgroup>
+    <tr><th class="c">이름</th><th class="c">역할</th><th>담당 업무</th></tr>
+    <tr><td class="p c">이강민</td><td class="c">조장 · 발표</td><td><ul class="duty">
+      <li>사용자·공통 모듈</li>
+      <li>추첨과 빌링키 자동결제: 10분 안 완료율 92.4~93.4% → <b>100%</b></li>
+      <li>Gateway 과부하 1~8차 측정, 동시 처리 상한 64 도입</li>
+      <li>사용자 3,000명 현실 모드 밤샘 측정: 선점 p95 <b>77~87% 감소</b></li></ul></td></tr>
+    <tr><td class="p c">안준현</td><td class="c">팀원</td><td><ul class="duty">
+      <li>결제·Mock PG, 이벤트 신뢰성 공통 모듈(Outbox·처리 이력·DLQ)</li>
+      <li>결과 모름 재조회, 재시도 이어받기 거부, 결제·예매 대사, 토스 연동</li>
+      <li>React 프론트엔드 전체와 MSW 목, AI 예매 상담(RAG)</li>
+      <li>AWS 배포·Jenkins·HTTPS·관측, AI 협업 규칙과 기록 체계</li></ul></td></tr>
+    <tr><td class="p c">최권우</td><td class="c">팀원</td><td><ul class="duty">
+      <li>동기형·접수형 좌석 선점과 동시성 검증(시나리오 C1~C7)</li>
+      <li>탭 4개로 매수 한도를 넘는 결함 30/30 → <b>0</b></li>
+      <li>연타 시 자기 요청 409 2,416명 → <b>0명</b></li>
+      <li>잠금 대기 50ms·사전 판정, 측정으로 SKIP LOCKED 거부</li></ul></td></tr>
+    <tr><td class="p c">반효승</td><td class="c">팀원</td><td><ul class="duty">
+      <li>공연·좌석 조회</li>
+      <li>예매 상태·발권·결제 토큰·보상, 예매 취소</li>
+      <li>좌석 배치 로컬 캐시, 결제 결과 DLQ</li>
+      <li>새 회차 통계 갱신 실패 40% → <b>0</b></li></ul></td></tr>
+    <tr><td class="p c">권영은</td><td class="c">팀원</td><td><ul class="duty">
+      <li>대기열 Lua 번호표와 입장 토큰</li>
+      <li>멱등성 근거 정정, 입장 토큰 사용 처리를 트랜잭션 밖 호출로 수정</li>
+      <li>부하 테스트와 Synthetic Data 주관</li>
+      <li>배포 측정 기준 정리</li></ul></td></tr>
+  </table>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 03 수행 절차 및 방법 -->
+<section class="slide page">
+  <div class="head"><div class="no">03</div><h1>프로젝트 수행 절차 및 방법</h1></div>
+  <div class="body">
+  <table class="t">
+    <colgroup><col style="width:260px"><col></colgroup>
+    <tr><th>주차</th><th>활동</th></tr>
+    <tr><td class="p">1주차<br><small style="font-weight:500;color:var(--ink-3)">10/26 ~ 11/1</small></td><td>SA 1차 피드백 반영, 공통 모듈·인증·Gateway·Config 서버 구축(M1), 서비스 간 계약 4종 확정, 추첨 설계 결정</td></tr>
+    <tr><td class="p">2주차<br><small style="font-weight:500;color:var(--ink-3)">11/2 ~ 11/8</small></td><td>일반 예매 한 흐름 연결(M2), 추첨 필수 기능 격상, EC2 첫 배포(11/4), 실패 경로·장애 주입·MVP 시연(M3)</td></tr>
+    <tr><td class="p">3주차<br><small style="font-weight:500;color:var(--ink-3)">11/9 ~ 11/15</small></td><td>고도화(M4): Gateway 과부하 측정·개선, 토스페이먼츠 연동, 취소·환불, 자동결제 완료율 개선, Synthetic Data 3,000명 측정</td></tr>
+    <tr><td class="p">4주차<br><small style="font-weight:500;color:var(--ink-3)">11/16 ~ 11/19</small></td><td>HTTPS 배포, 좌석 선점 밤샘 측정 결과 반영, 브로셔·README·결과보고서 작성, 최종 발표(11/19)</td></tr>
+  </table>
+  <div class="callout">
+    <div class="k">협업 방식</div>
+    <div class="v">Linear 이슈 ↔ GitHub 브랜치·PR 연결, 서비스 간 접점 변경은 contract 이슈로 상대 담당에게 알림, CI 6개 통과 후 머지</div>
+  </div>
+  <div class="note">11/16 기준: Linear 이슈 297개, 머지된 PR 384개, contract 이슈 49건</div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 일반 예매 흐름 (그림 장) -->
+<section class="slide figure">
+  <div class="bar"><span class="no">04</span><span>프로젝트 수행 경과</span><span>·</span><b>전체 프로세스: 일반 예매 흐름</b><span class="pg"></span></div>
+  <img src="../architecture/2026-11-12-user-flow-booking.png" alt="일반 예매 유저 플로우">
+</section>
+
+<!-- 04 SAGA (그림 장) -->
+<section class="slide figure">
+  <div class="bar"><span class="no">04</span><span>프로젝트 수행 경과</span><span>·</span><b>예매↔결제 SAGA: 결제 거절 뒤 보상</b><span class="pg"></span></div>
+  <img src="../architecture/2026-11-14-saga-payment-declined.png" alt="결제 거절 뒤 보상 SAGA">
+</section>
+
+<!-- 04 ERD (그림 장) -->
+<section class="slide figure">
+  <div class="bar"><span class="no">04</span><span>프로젝트 수행 경과</span><span>·</span><b>ERD ① 예매 DB</b><span class="pg"></span></div>
+  <img src="figures/2026-11-18-erd-reservation.png" alt="예매 DB ERD">
+</section>
+
+<section class="slide figure">
+  <div class="bar"><span class="no">04</span><span>프로젝트 수행 경과</span><span>·</span><b>ERD ② 결제·사용자 DB</b><span class="pg"></span></div>
+  <img src="figures/2026-11-18-erd-payment-user.png" alt="결제·사용자 DB ERD">
+</section>
+
+<!-- 04 API 명세 -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">API 명세 (주요 사용자 API)</div>
+  <div class="body">
+  <div class="api">
+    <div>
+    <table>
+      <tr><th>메서드</th><th>경로</th><th>설명</th></tr>
+      <tr class="g"><td colspan="3">User</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/users</td><td>회원가입</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/auth/login</td><td>로그인</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/auth/refresh</td><td>토큰 재발급</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/auth/logout</td><td>로그아웃</td></tr>
+      <tr class="g"><td colspan="3">Payment · Assistant</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/payments</td><td>결제 승인</td></tr>
+      <tr><td class="m get">GET</td><td class="u">/api/v1/payments/{id}</td><td>결제 상태</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/payments/billing-keys</td><td>자동결제 카드 등록</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/api/v1/assistant/messages</td><td>AI 상담</td></tr>
+    </table>
+    <div class="resp"><b>응답 형식</b> 성공 <code>{status, message, data, traceId}</code> · 실패 <code>{status, code, message, errors, traceId}</code><br>409(이미 선택된 좌석)는 정상 거절, 5xx·시간 초과만 오류로 집계<br>Reservation 경로는 <code>/api/v1</code> 생략 · 전체 명세는 <code>/api/docs</code>(Swagger UI)</div>
+    </div>
+    <table>
+      <tr><th>메서드</th><th>경로</th><th>설명</th></tr>
+      <tr class="g"><td colspan="3">Reservation</td></tr>
+      <tr><td class="m get">GET</td><td class="u">/api/v1/concerts</td><td>공연 목록</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/schedules/{id}/queue</td><td>대기열 진입</td></tr>
+      <tr><td class="m get">GET</td><td class="u">/schedules/{id}/queue/me</td><td>내 순번</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/schedules/{id}/queue/token</td><td>입장 토큰 발급</td></tr>
+      <tr><td class="m get">GET</td><td class="u">/schedules/{id}/seats</td><td>좌석 배치·상태</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/schedules/{id}/reservations</td><td>좌석 일괄 선점</td></tr>
+      <tr><td class="m get">GET</td><td class="u">/reservations/{id}</td><td>예매 상세·티켓</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/reservations/{id}/cancel</td><td>예매 취소</td></tr>
+      <tr><td class="m post">POST</td><td class="u">/lotteries/{id}/entries</td><td>추첨 응모</td></tr>
+      <tr><td class="m get">GET</td><td class="u">/lotteries/{id}/entries/me</td><td>응모 결과</td></tr>
+    </table>
+  </div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 활용 기술 및 구현 방법 -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">활용 기술 및 구현 방법</div>
+  <div class="body">
+  <table class="t">
+    <colgroup><col style="width:420px"><col></colgroup>
+    <tr><th>기술</th><th>구현 방법</th></tr>
+    <tr><td class="p">Redis + Lua</td><td>대기열 번호표(seq) 발급과 입장 판정(<code>seq ≤ admitted</code>)을 한 번의 원자 실행으로 처리, 입장 토큰 발급</td></tr>
+    <tr><td class="p">PostgreSQL 조건부 UPDATE</td><td>AVAILABLE일 때만 HELD로 변경, 좌석 ID 오름차순 잠금으로 교착 방지, 잠금 대기 최대 50ms</td></tr>
+    <tr><td class="p">Kafka + Outbox · 처리 이력 · DLQ</td><td>DB 변경과 이벤트를 한 트랜잭션에 기록 후 릴레이 발행, 같은 이벤트 중복 처리 차단, 3회 재시도 뒤 DLQ</td></tr>
+    <tr><td class="p">코레오그래피 SAGA</td><td><code>payment.result</code>로 예매 확정·좌석 반환, <code>payment.command</code>로 환불·자동결제 요청</td></tr>
+    <tr><td class="p">Resilience4j</td><td>Gateway 동시 처리 상한 64, Redis 장애 차단기와 과부하 집계 분리, PG 허가 그룹을 일반·자동결제로 분리</td></tr>
+    <tr><td class="p">JWT · ES256 · AES-256-GCM</td><td>입장 토큰·결제 토큰 키 분리와 <code>typ</code>·<code>aud</code> 검증, 결제 토큰은 예매 서비스 개인키로 서명, 빌링키 암호화</td></tr>
+    <tr><td class="p">Prometheus · Grafana · Loki · Zipkin</td><td>지표·로그·추적을 같은 시간축에서 확인, 알림 규칙 37개와 알림 테스트 64건</td></tr>
+    <tr><td class="p">k6 + 별도 EC2</td><td>같은 VPC의 부하 발생기에서 시나리오 19개 반복 측정, 같은 조건 2회씩 비교</td></tr>
+  </table>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 핵심 기능 및 구현 결과 -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">핵심 기능 및 구현 결과</div>
+  <div class="body">
+  <table class="t">
+    <colgroup><col style="width:330px"><col><col style="width:470px"></colgroup>
+    <tr><th>문제</th><th>구현 방법</th><th>결과</th></tr>
+    <tr><td class="p nowrap"><span>1</span>요청 폭주</td><td>대기열로 입장 순서 결정, Gateway 동시 처리 상한(64) 도입, 넘친 요청은 인증 전 즉시 거절</td><td class="r">초당 2,000건에서 p95 571 → 87ms, 굿풋 +30%</td></tr>
+    <tr><td class="p nowrap"><span>2</span>같은 좌석 동시 클릭</td><td>판매 판정을 Redis 대신 DB 조건부 UPDATE로 처리, 부분 유니크 인덱스를 마지막 방어선으로 배치</td><td class="r">모든 배포 측정에서 중복 판매 0건</td></tr>
+    <tr><td class="p nowrap"><span>3</span>결제 결과 모름</td><td>응답이 없으면 실패로 단정하지 않고 "결과 모름(UNKNOWN)"으로 보류 후 재조회, 예매와 결제는 이벤트(SAGA)로만 연결</td><td class="r">결제 서버 강제 종료에도 PG 원장 34건 = 결제 DB 34건</td></tr>
+    <tr><td class="p nowrap"><span>4</span>공정성</td><td>추첨 예매 도입, 당첨 시 사전 등록 카드로 자동결제, 실패 시 예비 당첨자가 승계</td><td class="r">당첨 약 2,000건 10분 안에 100% 결제</td></tr>
+  </table>
+  <div class="note">측정 환경: 배포 서버(EC2 m7i.xlarge, 4 vCPU) 1대, 같은 VPC의 별도 부하 발생기(k6). 측정일이 다른 결과끼리는 비교 제외</div>
+  <div class="callout">
+    <div class="k">설계 검토 반영 · AI가 제안한 대기열 서비스 분리안 거부</div>
+    <div class="v">대기열은 도메인 데이터가 없고, 멈추면 예매 과정도 함께 멈추기 때문에 분리해도 장애가 격리되지 않기 때문</div>
+  </div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 개선 전후 -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">개선 전후 정량 성과</div>
+  <div class="body">
+  <table class="t">
+    <colgroup><col style="width:560px"><col style="width:300px"><col style="width:300px"><col></colgroup>
+    <tr><th>지표</th><th>이전</th><th>이후</th><th>변화</th></tr>
+    <tr><td class="p">Gateway 굿풋(초당 2,000건)</td><td>1,304/s</td><td>1,696/s</td><td class="r">30% 증가</td></tr>
+    <tr><td class="p">Gateway p95(초당 2,000건)</td><td>571ms</td><td>87ms</td><td class="r">85% 감소</td></tr>
+    <tr><td class="p">Gateway 메모리 초과 재시작</td><td>3회</td><td>0회</td><td class="r">재시작 없음</td></tr>
+    <tr><td class="p">좌석 선점 p95(사용자 3,000명)</td><td>242.7 · 196.0ms</td><td>44.5 · 31.4ms</td><td class="r">77~87% 감소(2회씩)</td></tr>
+    <tr><td class="p">자동결제 10분 안 완료율</td><td>92.4~93.4%</td><td>100%</td><td class="r">기준 95% 통과</td></tr>
+    <tr><td class="p">자동결제 처리 속도</td><td>초당 3.2건</td><td>초당 9.4건</td><td class="r">약 2.9배</td></tr>
+    <tr><td class="p">연타 시 자기 요청 409(로컬 k6)</td><td>2,416명</td><td>0명</td><td class="r">결함 제거</td></tr>
+    <tr><td class="p">자동 배정 확정(인덱스 추가)</td><td>433건</td><td>2,248건</td><td class="r">DB CPU 280% → 18.2%</td></tr>
+  </table>
+  <div class="note">굿풋: 200ms 안에 200으로 응답한 요청 수(초당). 같은 배포·같은 조건끼리만 비교</div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 피드백 반영 ① -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">피드백 및 반영 ① SA 1차 피드백 (10/26)</div>
+  <div class="body">
+  <table class="t sm">
+    <colgroup><col style="width:600px"><col><col style="width:130px"></colgroup>
+    <tr><th>피드백</th><th>반영 내용</th><th>상태</th></tr>
+    <tr><td>PG 호출 중 서버가 죽으면 REQUESTED로 방치, 재확인은 초 단위 Kafka·분 단위 스케줄러로 분리</td><td>경과한 REQUESTED도 재확인 대상, 10초×6회 → 1분 → 5분 → 15분 → 운영자 확인. Kafka는 1·2·4초 재시도 뒤 DLQ</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>환불도 상태를 나누고 중복 요청을 전제로 설계</td><td>refunds 테이블과 상태 5개, 결제당 환불 1건 유니크, PG 멱등키</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>결제 토큰 만료를 선점 만료보다 앞당김</td><td>결제 토큰 만료를 선점 만료 10초 전으로 설정</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>입장 토큰과 결제 토큰의 서명 키 분리</td><td>키 분리와 <code>typ</code>·<code>aud</code> 검증, 결제 토큰은 ES256 비대칭 서명까지 확장</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>접수형 선점은 실패 상태를 저장할 곳이 없음</td><td>접수 요청 행과 outbox를 한 트랜잭션에 기록</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>레이스 컨디션 해결 방식 결정, 부분 유니크 문서화</td><td>조건부 UPDATE + 부분 유니크 유지, 분산 락 미채택 근거 기록, 잠금 대기 50ms</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>Redis 느려짐은 짧은 타임아웃·서킷 브레이커로 차단</td><td>Gateway 인증 Redis 차단기와 과부하 집계 분리, 로그아웃 토큰 확인은 fail-closed로 변경</td><td><span class="state part">변경</span></td></tr>
+    <tr><td>Java 힙 상한과 EC2 메모리 계산, 단일 인스턴스 한계</td><td>서비스별 메모리 상한·<code>-Xmx</code> 지정, 단일 EC2 한계를 결정 기록에 명시</td><td><span class="state ok">반영</span></td></tr>
+  </table>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 피드백 반영 ② -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">피드백 및 반영 ② 고도화 기간 (11/9) · 남은 과제</div>
+  <div class="body">
+  <table class="t">
+    <colgroup><col style="width:520px"><col><col style="width:140px"></colgroup>
+    <tr><th>피드백</th><th>반영 내용</th><th>상태</th></tr>
+    <tr><td>서버와 부하 발생기의 시간 동기화(NTP)</td><td>두 EC2 모두 chrony로 Amazon Time Sync에 동기화 확인, 오차 기록. 브라우저는 서버 시각으로 보정</td><td><span class="state ok">반영</span></td></tr>
+    <tr><td>레이트 리미터 도입</td><td>사용자 단위 요청 제한 대신 Gateway 동시 처리 상한 64와 503·재시도 시간 응답</td><td><span class="state part">대체</span></td></tr>
+    <tr><td>벌크헤드로 자원 격리</td><td>PG 허가 그룹을 일반 결제·자동결제로 분리, DB 커넥션 풀 분리는 미적용</td><td><span class="state part">부분</span></td></tr>
+  </table>
+  <div class="grp"><h3>남은 과제</h3>
+  <ul class="b">
+    <li>입장 속도는 측정값으로 역산하지 않고 임시값 초당 50명 유지</li>
+    <li>법령 조사는 전자상거래법 5년 보관 한 건만 설계에 반영</li>
+    <li>사용자 단위 요청 제한(레이트 리미터) 미구현</li>
+  </ul></div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 04 AI 활용 설계 검증 -->
+<section class="slide page">
+  <div class="head"><div class="no">04</div><h1>프로젝트 수행 경과</h1></div>
+  <div class="sub">AI 활용 설계 검증</div>
+  <div class="body">
+  <div class="cols" style="grid-template-columns: 640px 1fr; gap: 56px">
+    <div class="tiles">
+      <div class="tile"><div class="v">806건</div><div class="l">AI 판단 기록<br>(개별 241 + 일지 565줄)</div></div>
+      <div class="tile"><div class="v">94건</div><div class="l">AI 제안 거부<br>(개별 기록의 39%)</div></div>
+      <div class="tile"><div class="v">11건</div><div class="l">SA 설계 검증 로그<br>(거부 4건)</div></div>
+      <div class="tile"><div class="v">351개</div><div class="l">개념·방법<br>질문 노트</div></div>
+    </div>
+    <div>
+      <div class="grp fill"><h3>대표 거부 사례</h3>
+      <table class="t">
+        <colgroup><col style="width:330px"><col></colgroup>
+        <tr><th>AI 제안</th><th>판단 근거</th></tr>
+        <tr><td class="p">대기열 서비스 분리</td><td>도메인 데이터가 없고 멈추면 예매도 멈춰 장애 격리 효과 없음</td></tr>
+        <tr><td class="p">오케스트레이션 SAGA</td><td>참여 서비스가 둘뿐이라 결과 이벤트 구독으로 충분</td></tr>
+        <tr><td class="p">재시도가 기존 결제를 이어받아 승인</td><td>이전 요청의 PG 호출 여부를 확인할 수 없어 이중 승인 위험</td></tr>
+        <tr><td class="p">SKIP LOCKED("손해는 드물다")</td><td>측정 결과 성공 83 → 56건으로 감소</td></tr>
+      </table></div>
+    </div>
+  </div>
+  <div class="note">11/16 기준. 기록 위치: docs/ai-judgments, docs/learning, SA MASTER 14장</div>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<!-- 05 자체 평가 의견 -->
+<section class="slide page">
+  <div class="head"><div class="no">05</div><h1>자체 평가 의견</h1></div>
+  <div class="body">
+  <table class="t roomy">
+    <colgroup><col style="width:200px"><col style="width:300px"><col></colgroup>
+    <tr><th class="c">이름</th><th class="c">평가 점수 (10점 만점)</th><th>평가 점수 사유 (잘한 점, 아쉬운 점, 느낀 점, 개선할 점)</th></tr>
+    <tr><td class="p c">이강민</td><td class="c"><span class="blank" style="width:140px"></span></td><td><span class="blank"></span></td></tr>
+    <tr><td class="p c">안준현</td><td class="c"><span class="blank" style="width:140px"></span></td><td><span class="blank"></span></td></tr>
+    <tr><td class="p c">최권우</td><td class="c"><span class="blank" style="width:140px"></span></td><td><span class="blank"></span></td></tr>
+    <tr><td class="p c">반효승</td><td class="c"><span class="blank" style="width:140px"></span></td><td><span class="blank"></span></td></tr>
+    <tr><td class="p c">권영은</td><td class="c"><span class="blank" style="width:140px"></span></td><td><span class="blank"></span></td></tr>
+  </table>
+  </div>
+  <div class="foot"><span>이선좌 · TEAM 5조</span><span class="pg"></span></div>
+</section>
+
+<script>
+  document.querySelectorAll('.slide').forEach((s, i) => {
+    s.querySelectorAll('.pg').forEach(p => { p.textContent = i + 1; });
+  });
+  const n = parseInt(location.hash.slice(1), 10);
+  if (n) {
+    document.body.classList.add('single');
+    document.querySelectorAll('.slide')[n - 1].classList.add('on');
+  }
+</script>
+</body>
+</html>

@@ -20,6 +20,7 @@
 | [`troubleshooting/`](troubleshooting/README.md) | 트러블슈팅 대표 사례 | [`troubleshooting.md`](../troubleshooting.md) |
 | [`ai-verification/`](ai-verification/README.md) | AI 설계 검증 대표 사례(발제 필수, 2건 이상) | [`ai-judgments/`](../ai-judgments/README.md) |
 | [`demo/`](demo/README.md) | 시연 순서, 시연 화면 스크린샷과 녹화 | [`design/demo/`](../design/demo/2026-11-06-mvp-scenarios.md), [`guides/demo-scenarios.md`](../guides/demo-scenarios.md) |
+| [`report/`](report/README.md) | 캠프 가이드 목차 5개에 맞춘 최종 결과보고서(PDF 23쪽)와 원본 HTML, 새로 그린 ERD | 이 표의 다른 폴더, [브로셔](overview/2026-11-16-brochure.md) |
 | [`brand/`](brand/README.md) | 아이콘, 로고, 그림에 함께 쓸 색 | [`design/frontend/design-system.md`](../design/frontend/design-system.md) |
 
 어느 폴더에도 맞지 않는 자료가 생기면 위 표에 한 줄을 더한 뒤 폴더를 만든다.
