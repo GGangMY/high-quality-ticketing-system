@@ -42,6 +42,7 @@
 
 | 날짜 | 판단 대상 | 판단자 | AI | 판단 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-18 | 결과보고서와 발표 덱을 합친 v4에서 AI가 추천한 보고서 목차 뼈대 대신 발표 7구간 흐름을 유지하고 보고서 장을 끼워 넣음 | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-18-deck-v4-keep-talk-flow.md) |
 | 2026-11-17 | README를 브로셔 내용으로 꾸미자는 AI 안 대신, 배포 서버를 내린 뒤에도 읽히도록 프로젝트를 드러내는 README를 따로 쓰기로 함(ISE-308) | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-17-readme-not-brochure-copy.md) |
 | 2026-11-17 | 배포 측정(ISE-296) 결과로 선점 동시 처리 상한은 운영에서 켜지 않고 커넥션 풀은 5를 유지하기로 함(ADR 0062 갱신, ADR 0064 확인) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-17-limit-off-pool-keep-after-deploy.md) |
 | 2026-11-16 | 배포 서버 단계 측정(ISE-296)에서 A0가 게이트웨이 동시 처리 상한 64에 막혀, 상한을 끄고 S0부터 다시 재기로 함 | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-16-a0-deploy-gateway-inflight-off.md) |
