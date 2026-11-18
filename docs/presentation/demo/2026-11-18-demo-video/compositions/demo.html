@@ -1,0 +1,100 @@
+<template>
+  <style>
+    @font-face { font-family: 'Pretendard'; src: url('assets/fonts/PretendardVariable.woff2') format('woff2'); font-weight: 100 900; }
+    #root { position: absolute; inset: 0; background: #F4F0E6; font-family: 'Pretendard', sans-serif; overflow: hidden; color: #120F1A; }
+    .blob { position: absolute; border-radius: 50%; }
+    #de-blob1 { left: 1360px; top: 520px; width: 820px; height: 820px; background: radial-gradient(closest-side, rgba(255,210,63,0.5), rgba(255,210,63,0)); }
+    #de-blob2 { left: 1400px; top: -260px; width: 700px; height: 700px; background: radial-gradient(closest-side, rgba(47,59,232,0.22), rgba(47,59,232,0)); }
+
+    /* 위쪽 단계 자막 */
+    .step { position: absolute; left: 64px; top: 40px; height: 80px; }
+    .step .in { display: flex; align-items: center; gap: 20px; }
+    .step .no { font-size: 30px; font-weight: 800; color: #FFFFFF; background: #2F3BE8; border: 3px solid #120F1A; border-radius: 12px; box-shadow: 5px 5px 0 #120F1A; padding: 6px 16px 8px; }
+    .step .t { font-size: 50px; font-weight: 900; letter-spacing: -2px; }
+
+    /* 브라우저 창: 주소창 없이 탭 이름만 */
+    #de-br { position: absolute; left: 64px; top: 132px; width: 1446px; border: 3px solid #120F1A; border-radius: 22px; background: #120F1A; box-shadow: 14px 14px 0 #120F1A; overflow: hidden; }
+    #de-bar { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 18px; background: #FFD23F; border-bottom: 3px solid #120F1A; }
+    #de-bar i { display: block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #120F1A; }
+    #de-bar span { margin-left: 14px; font-size: 19px; font-weight: 800; color: #120F1A; }
+    #de-screen { position: relative; width: 1440px; height: 810px; overflow: hidden; background: #FAFAFC; }
+    #de-zoom { position: absolute; inset: 0; }
+    #de-zoom video { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; object-fit: cover; }
+
+    /* 화면을 건너뛴 자리 표시 */
+    #de-jump { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; }
+    #de-jump .in { position: absolute; left: 560px; top: 340px; width: 320px; text-align: center; font-size: 40px; font-weight: 900; color: #FFFFFF; background: #120F1A; border-radius: 999px; padding: 18px 0 22px; }
+
+    /* 오른쪽 하린과 말풍선 */
+    .harin { position: absolute; left: 1545px; top: 600px; width: 340px; height: 440px; }
+    .harin img { position: absolute; left: 0; bottom: 0; width: 340px; height: 440px; object-fit: contain; object-position: bottom; }
+    .bub { position: absolute; left: 1540px; top: 380px; width: 344px; }
+    .bub .in { position: relative; background: #FFFFFF; border: 3px solid #120F1A; border-radius: 22px; box-shadow: 6px 6px 0 #120F1A; padding: 20px 22px 22px; word-break: keep-all; font-size: 31px; font-weight: 800; line-height: 1.32; letter-spacing: -0.8px; }
+    .bub .in::after { content: ''; position: absolute; left: 150px; bottom: -19px; width: 30px; height: 30px; background: #FFFFFF; border-right: 3px solid #120F1A; border-bottom: 3px solid #120F1A; transform: rotate(45deg); }
+  </style>
+  <div id="root" data-composition-id="demo" data-width="1920" data-height="1080">
+    <div id="de-blob1" class="blob" data-layout-allow-overflow></div>
+    <div id="de-blob2" class="blob" data-layout-allow-overflow></div>
+
+    <div id="st1" class="step clip" data-start="0" data-duration="8.6" data-track-index="2"><div class="in"><p class="no">STEP 1</p><p class="t" data-var-text>공연과 회차 고르기</p></div></div>
+    <div id="st2" class="step clip" data-start="8.6" data-duration="5.0" data-track-index="2"><div class="in"><p class="no">STEP 2</p><p class="t" data-var-text>정각에 예매 오픈</p></div></div>
+    <div id="st3" class="step clip" data-start="13.6" data-duration="3.2" data-track-index="2"><div class="in"><p class="no">STEP 3</p><p class="t" data-var-text>대기열을 거쳐 입장</p></div></div>
+    <div id="st4" class="step clip" data-start="16.8" data-duration="9.9" data-track-index="2"><div class="in"><p class="no">STEP 4</p><p class="t" data-var-text>원하는 좌석 고르기</p></div></div>
+    <div id="st5" class="step clip" data-start="26.7" data-duration="7.4" data-track-index="2"><div class="in"><p class="no">STEP 5</p><p class="t" data-var-text>잡아 둔 5분 안에 결제</p></div></div>
+    <div id="st6" class="step clip" data-start="34.1" data-duration="7.1" data-track-index="2"><div class="in"><p class="no">STEP 6</p><p class="t" data-var-text>예매 확정, 발권 기념 부적까지</p></div></div>
+
+    <div id="de-br">
+      <div id="de-bar"><i style="background:#FF3D7F"></i><i style="background:#FFFFFF"></i><i style="background:#7EE0D4"></i><span data-layout-ignore>이선좌 · 콘서트 예매</span></div>
+      <div id="de-screen">
+        <div id="de-zoom" data-layout-allow-overflow>
+          <video id="de-a" class="clip" src="assets/video/booking.mp4" data-start="0" data-duration="8.6" data-media-start="0.2" muted playsinline data-track-index="1"></video>
+          <video id="de-b" class="clip" src="assets/video/booking.mp4" data-start="8.6" data-duration="32.6" data-media-start="34.4" muted playsinline data-track-index="1"></video>
+        </div>
+        <div id="de-jump" class="clip" data-start="8.45" data-duration="1.2" data-track-index="3"><p class="in">잠시 뒤</p></div>
+      </div>
+    </div>
+
+    <div id="hr1" class="harin clip" data-start="0" data-duration="11.44" data-track-index="4"><img src="assets/img/harin-bust-focus.webp" alt="" /></div>
+    <div id="hr2" class="harin clip" data-start="11.44" data-duration="2.16" data-track-index="4"><img src="assets/img/harin-bust-joy.webp" alt="" /></div>
+    <div id="hr2b" class="harin clip" data-start="13.6" data-duration="3.2" data-track-index="4"><img src="assets/img/harin-bust-relief.webp" alt="" /></div>
+    <div id="hr3" class="harin clip" data-start="16.8" data-duration="9.9" data-track-index="4"><img src="assets/img/harin-bust-focus.webp" alt="" /></div>
+    <div id="hr4" class="harin clip" data-start="26.7" data-duration="7.4" data-track-index="4"><img src="assets/img/harin-bust-joy.webp" alt="" /></div>
+    <div id="hr5" class="harin clip" data-start="34.1" data-duration="7.1" data-track-index="4"><img src="assets/img/harin-thumbs.webp" alt="" /></div>
+
+    <div id="bb1" class="bub clip" data-start="0.4" data-duration="8.2" data-track-index="5"><p class="in" data-var-text>보고 싶던 공연, 오늘 오픈해요</p></div>
+    <div id="bb2" class="bub clip" data-start="8.8" data-duration="2.64" data-track-index="5"><p class="in" data-var-text>3, 2, 1…</p></div>
+    <div id="bb3" class="bub clip" data-start="11.44" data-duration="2.16" data-track-index="5"><p class="in" data-var-text>열렸다!</p></div>
+    <div id="bb4" class="bub clip" data-start="13.8" data-duration="3.0" data-track-index="5"><p class="in" data-var-text>줄 선 순서대로 들어가요</p></div>
+    <div id="bb5" class="bub clip" data-start="17.0" data-duration="9.7" data-track-index="5"><p class="in" data-var-text>원하는 자리를 콕!</p></div>
+    <div id="bb6" class="bub clip" data-start="26.9" data-duration="7.2" data-track-index="5"><p class="in" data-var-text>고른 자리는 5분 동안 내 거예요</p></div>
+    <div id="bb7" class="bub clip" data-start="34.3" data-duration="6.9" data-track-index="5"><p class="in" data-var-text>예매 끝! 부적도 받았어요</p></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // 단계 자막은 왼쪽에서 밀려 들어온다
+    [['#st1', 0], ['#st2', 8.6], ['#st3', 13.6], ['#st4', 16.8], ['#st5', 26.7], ['#st6', 34.1]].forEach(([id, at]) => {
+      tl.fromTo(id + ' .in', { x: -50, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: 'power4.out' }, at + 0.05);
+      tl.fromTo(id + ' .no', { scale: 0.6 }, { scale: 1, duration: 0.35, ease: 'back.out(2.4)' }, at + 0.1);
+    });
+    // 하린은 바뀔 때마다 아래에서 살짝 튀어 오른다
+    [['#hr1', 0], ['#hr2', 11.44], ['#hr2b', 13.6], ['#hr3', 16.8], ['#hr4', 26.7], ['#hr5', 34.1]].forEach(([id, at]) => {
+      tl.fromTo(id + ' img', { y: 40, scaleY: 0.9 }, { y: 0, scaleY: 1, transformOrigin: '50% 100%', duration: 0.4, ease: 'back.out(2)' }, at);
+    });
+    // 말풍선은 꼬리 쪽에서 커지며 뜬다
+    [['#bb1', 0.4], ['#bb2', 8.8], ['#bb3', 11.44], ['#bb4', 13.8], ['#bb5', 17.0], ['#bb6', 26.9], ['#bb7', 34.3]].forEach(([id, at]) => {
+      tl.fromTo(id + ' .in', { scale: 0.7, opacity: 0, transformOrigin: '45% 110%' }, { scale: 1, opacity: 1, duration: 0.32, ease: 'back.out(2.2)' }, at);
+    });
+    // 30초를 건너뛴 자리
+    tl.fromTo('#de-jump .in', { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: 'back.out(2)' }, 8.45);
+    tl.to('#de-jump .in', { opacity: 0, duration: 0.25, ease: 'power2.in' }, 9.35);
+    // 화면 확대: 카운트다운, 좌석, 확정 티켓, 부적 QR
+    tl.to('#de-zoom', { scale: 1.35, transformOrigin: '81% 58%', duration: 0.45, ease: 'power2.inOut' }, 8.8);
+    tl.to('#de-zoom', { scale: 1, duration: 0.45, ease: 'power2.inOut' }, 11.95);
+    tl.to('#de-zoom', { scale: 1.6, transformOrigin: '36% 79%', duration: 0.45, ease: 'power2.inOut' }, 23.2);
+    tl.to('#de-zoom', { scale: 1, duration: 0.45, ease: 'power2.inOut' }, 24.9);
+    tl.to('#de-zoom', { scale: 1.18, transformOrigin: '50% 62%', duration: 0.5, ease: 'power2.inOut' }, 34.4);
+    tl.to('#de-zoom', { scale: 1, duration: 0.45, ease: 'power2.inOut' }, 36.8);
+    tl.to('#de-zoom', { scale: 1.55, transformOrigin: '31% 73%', duration: 0.6, ease: 'power2.inOut' }, 38.2);
+    window.__timelines['demo'] = tl;
+  </script>
+</template>
