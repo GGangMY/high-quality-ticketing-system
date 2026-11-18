@@ -1,7 +1,7 @@
 ---
 title: 장애 대응과 복원력 설계
 date: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-18
 asker: KWON-WOO
 level: 고급
 tags: [saga, outbox, idempotency, circuit-breaker, resilience4j, reconciliation]
@@ -22,12 +22,15 @@ tags: [saga, outbox, idempotency, circuit-breaker, resilience4j, reconciliation]
 | DB 커밋 후 Kafka 발행 실패 | Outbox | 구현됨 |
 | 같은 메시지 두 번 도착 | Inbox(processed_events) | 구현됨 |
 | 처리 불가 메시지 | 재시도 후 DLQ | 구현됨 |
-| PG 장애 전파 | 서킷 브레이커 + Bulkhead | 구현됨 |
-| Redis 장애 | 인증은 fail-closed(503) | 구현됨(인증만) |
-| 결제 안 한 선점 | 선점 만료 스케줄러 | 구현됨 |
+| PG 장애 전파 | 서킷 브레이커 + Bulkhead, 토스 실패 때 Mock PG로 넘김 | 구현됨 |
+| Redis 장애 | 인증은 fail-closed(503), 대기열은 차단기 + 503·Retry-After | 구현됨 |
+| 결제 안 한 선점 | 선점 만료 스케줄러(1초) | 구현됨 |
 | 좌석·매수 수치 어긋남 | 좌석 원장 대사 | 구현됨(수동 호출) |
-| 결제·예매 어긋남 | 결제 대사 RC-7·8 / RC-1~6 | 구현됨 / 꺼짐 |
-| 과부하 뒤 회복 못 함 | 커넥션 대기 30초→1초 | 측정만 |
+| 결제·예매 어긋남 | 결제 대사 RC-1~8 | 구현됨 |
+| 과부하 뒤 회복 못 함 | 커넥션 대기 30초→1초, 초과는 503 | 구현됨(ISE-196, ISE-293) |
+| Gateway 과부하 | 동시 처리 상한 64, 거절을 HttpHandler 앞단에서 | 구현됨 |
+| 인기 좌석 잠금 대기 | 잠금 시한 50ms, 사전 판정 | 구현됨(ADR 0061, 0062) |
+| 선점 요청 폭주 | 선점 동시 처리 상한 | 코드만, 운영에서 끔(ADR 0062) |
 
 ## 1. 결제↔예매 SAGA와 보상
 
@@ -93,10 +96,11 @@ PG 호출은 Resilience4j 2.3.0으로 감쌌다(`Resilience4jPgApprovalGate.java
 
 | 그룹 | Bulkhead | 서킷 브레이커 |
 |---|---|---|
-| `pg-approve` (승인) | 동시 10, 대기 0 | 20회 중 50% 실패면 OPEN, 10초 뒤 HALF_OPEN에서 3회 시험 |
+| `pg-approve` (승인) | 동시 30, 대기 0 | 20회 중 50% 실패면 OPEN, 10초 뒤 HALF_OPEN에서 3회 시험. PG별(`pg-approve`, `pg-approve-toss`)로 나뉨 |
+| `pg-billing` (추첨 자동결제) | 동시 3 | ADR 0051 |
 | `pg-recovery` (재확인·환불) | 동시 2 | 별도 상태 |
 
-그룹을 나눠 승인 차단기가 열려도 재확인과 환불은 계속 돈다. 허가를 못 얻으면 PG를 부르지 않고 503 `PG_UNAVAILABLE`을 준다. `Unknown`은 실패로 세고, 정상 거절은 성공으로 센다. 카드 한도 초과는 PG 고장이 아니기 때문이다.
+그룹을 나눠 승인 차단기가 열려도 재확인과 환불은 계속 돈다. 자동결제 그룹을 따로 뺀 이유는 측정에 있다: 일반 결제와 같은 그룹을 쓰자 추첨 당첨자 결제가 몰릴 때 일반 결제가 9.5% 503을 받았고, 분리 뒤 0이 됐다. 승인 허가를 10에서 30으로 올린 근거는 PAY1 측정(허가 10, PG 300ms에서 승인이 초당 약 31건에 멈춤)이다. 토스가 결제를 시작조차 못 하면 Mock PG로 넘긴다(ISE-305). 넘기는 경우는 돈이 움직이지 않은 것이 확실할 때뿐이다: 토스 차단기가 열림, 결제창을 열지 못함, 결제창 뒤 승인이 결제 행 없이 503. 결과를 모르는 승인과 카드사 거절은 넘기지 않는다. 넘겼다가 양쪽에서 돈이 빠지는 이중 결제가 생길 수 있기 때문이다. 허가를 못 얻으면 PG를 부르지 않고 503 `PG_UNAVAILABLE`을 준다. `Unknown`은 실패로 세고, 정상 거절은 성공으로 센다. 카드 한도 초과는 PG 고장이 아니기 때문이다.
 
 타임아웃 예산:
 
@@ -105,13 +109,14 @@ PG 호출은 Resilience4j 2.3.0으로 감쌌다(`Resilience4jPgApprovalGate.java
 | Gateway | 연결 1초, 응답 3초(상담만 10초) |
 | PG | 연결 0.5초, 응답 2초 |
 | 결제 DB | 커넥션 대기 1초, 쿼리 1.5초, 소켓 2초 |
-| Redis 명령 | 100ms |
+| 예매 DB | 커넥션 대기 1초, 좌석 잠금 대기 50ms |
+| Redis 명령 | 200ms(공통), Gateway 인증 조회 200ms |
 
 안쪽 시한이 바깥보다 짧아야 Gateway가 504로 끊기 전에 서비스가 의미 있는 오류를 낸다. 결제 DB가 멈췄을 때 504가 나던 문제를 이 예산으로 503으로 바꿨다(ISE-163, `Ft4DbFreezeScenarioTest`).
 
 ## 5. Redis 장애 정책과 대기열 보호
 
-인증 블랙리스트는 fail-closed다(ADR 0005). Redis를 100ms 안에 못 읽거나 `auth-redis` 차단기가 열리면 503을 준다. 로그아웃한 토큰을 통과시키는 것보다 잠깐 막는 것이 안전하다는 판단이다.
+인증 블랙리스트는 fail-closed다(ADR 0005). Redis를 200ms 안에 못 읽거나 `auth-redis` 차단기가 열리면 503을 준다. 로그아웃한 토큰을 통과시키는 것보다 잠깐 막는 것이 안전하다는 판단이다.
 
 > 비유: 출입 명단 시스템이 꺼지면 경비원은 아무나 들여보내지 않고 문을 잠근다.
 
@@ -119,9 +124,11 @@ PG 호출은 Resilience4j 2.3.0으로 감쌌다(`Resilience4jPgApprovalGate.java
 |---|---|---|
 | 로그아웃 블랙리스트 | 503 | 구현됨 |
 | 입장 토큰 검증 | Redis 없이 서명만 검증 | 구현됨 |
-| 대기열 진입·입장 | 503 | 차단기 미구현 |
-| 사용자 요청 제한 | 로컬 카운터 | 미구현 |
-| 공연·좌석 캐시 | DB로 대체 | 미구현 |
+| 대기열 진입·입장 | 차단기가 열리면 503 `QUEUE_TEMPORARILY_UNAVAILABLE` + Retry-After | 구현됨(ISE-59) |
+| 사용자 요청 제한 | 로컬 카운터 | 미구현. Gateway 전체 동시 처리 상한만 있음 |
+| 공연·좌석 캐시 | Redis를 쓰지 않음 | 서비스 메모리 캐시라 Redis 장애와 무관 |
+
+`auth-redis` 차단기에는 벌크헤드(동시 50)를 따로 두고, 벌크헤드 거절은 차단기 실패로 세지 않는다(ADR 0050). Redis는 정상인데 동시 요청이 몰려 벌크헤드가 거절한 것을 실패로 세자 차단기가 열려 정상 사용자까지 503을 받았기 때문이다(TS-56).
 
 대기열 입장(`admit.lua`)은 세 가지를 막는다. 같은 초에 두 번 실행되지 않게 `lastTick`을 두어 인스턴스가 몇 대든 초당 50명을 넘지 않는다. `admitted`가 실제 대기 인원(seq)을 넘지 않게 해 오픈 순간 몰림 입장을 막는다. 발급 이력(`issued`)으로 토큰을 계속 재발급해 시간을 늘리는 것을 막는다.
 
@@ -129,7 +136,7 @@ PG 호출은 Resilience4j 2.3.0으로 감쌌다(`Resilience4jPgApprovalGate.java
 
 ### 선점 만료
 
-`SeatHoldExpiryScheduler`가 5초마다 기한 지난 HELD를 최대 100건 집어 건별 트랜잭션으로 푼다. 원장이 어긋나도 롤백하지 않고 경고만 남기고, 고치는 일은 대사가 맡는다. 추첨 예매는 1회 30분 연장한다.
+`SeatHoldExpiryScheduler`가 1초마다(운영 설정) 기한 지난 HELD를 최대 100건 `SKIP LOCKED`로 집어 건별 트랜잭션으로 푼다. 다른 요청이 잡고 있는 행은 다음 주기로 미룬다. 원장이 어긋나도 롤백하지 않고 경고만 남기고, 고치는 일은 대사가 맡는다. 추첨 예매는 1회 30분 연장한다.
 
 ### 좌석 원장 대사
 
@@ -141,11 +148,19 @@ PG 호출은 Resilience4j 2.3.0으로 감쌌다(`Resilience4jPgApprovalGate.java
 
 좌석 경합은 조건부 UPDATE + 부분 유니크 인덱스 + 좌석 ID 오름차순 잠금으로 막는다. Redis 분산락을 더하면 DB 제약과 이중이 되고, 락 만료나 Redis 지연이 선점 경로 전체를 막을 수 있다(SA MASTER 2202행).
 
-동시성 결함 TS-1~4(데드락, 4매 한도 우회, 연타 PK 충돌 500, 만료 경합)는 실험 브랜치에서 수정안 S1~S4로 0건이 되는 것을 확인했다. 아직 main에는 반영되지 않았다(`docs/design/reservation/concurrency-results.md`).
+동시성 결함(탭 4개로 8매 잡기, 연타에 자기 요청끼리 409, 무한 잠금 대기, 만료 헛수고)은 수정안 S1~S4로 고쳐 PR #458로 반영했다(TS-65~68). JUnit 시나리오 기준으로 한도 초과 30라운드→0, 자기 409 60건→0, 잠금 대기 최대 2,215ms→171~225ms, 만료 헛수고 100건→0이다(`docs/presentation/performance/2026-11-17-seat-concurrency-before-after-one-page.md`).
+
+### 잠금 대기 시한 50ms와 SKIP LOCKED를 고른 자리
+
+> 비유: 화장실 앞 줄. 안에 사람이 있으면 50ms만 기다리고 포기한다(lock_timeout). SKIP LOCKED는 "안에 사람 있으면 다른 칸으로 간다"인데, 좌석을 지정한 사람에게 다른 칸은 의미가 없다.
+
+- 선점(사용자가 좌석을 지정): `lock_timeout 50ms`. AI가 먼저 권한 SKIP LOCKED를 넣어 보니 곧 롤백될 요청이 쥔 짧은 잠금까지 건너뛰어 "실제로는 잡을 수 있던 좌석"을 409로 돌려보냈다. 동시성 시나리오 C2 성공이 83에서 56으로 줄어 거부했다(ADR 0061, TS-73).
+- 자동 배정(서버가 좌석을 고름): `FOR UPDATE SKIP LOCKED`. 어느 빈 좌석이든 되므로 잠긴 행을 건너뛰는 편이 맞다(ADR 0059).
+- 선점 만료: `SKIP LOCKED`. 지금 못 푼 행은 1초 뒤에 다시 본다.
 
 ## 7. 결제 대사와 운영 복구
 
-`housekeeping` 실행기가 5분마다 결제 대사를 돌려 불일치를 `reconciliation_mismatches`에 기록하고 알린다. 데이터는 자동으로 고치지 않는다(ADR 0029). 지금은 결제 내부 규칙 RC-7(상태와 이력 불일치), RC-8(확정 이벤트 누락)만 돌고, 예매와 대조하는 RC-1~6은 설정으로 꺼져 있다.
+`housekeeping` 실행기가 5분마다 결제 대사를 돌려 불일치를 `reconciliation_mismatches`에 기록하고 알린다. 데이터는 자동으로 고치지 않는다(ADR 0029). 결제 내부 규칙 RC-7(상태와 이력 불일치), RC-8(확정 이벤트 누락)과, 예매 서비스 내부 API로 대조하는 RC-1~6이 모두 켜져 있다.
 
 고치는 일은 Ops 명령행이 한다. dry-run과 계획 해시, 4-eyes 확인, PG 근거로 목표 상태 결정, 감사 테이블 append-only 트리거를 둔다(ADR 0028).
 
@@ -178,6 +193,12 @@ Mock PG는 `DELAY`, `DECLINE`, `DROP_RESPONSE`, `PROCESSING`, `SERVER_ERROR`, `R
 | TS-39 | 선점이 만료되지 않음 | 측정 때 만료를 꺼서 묵은 HELD 7,222건 적체 | 측정 전 초기 상태 확인 절차 |
 | TS-40 | mock-pg 재기동 직후 503·504 | 연결 실패가 차단기 실패율로 셈 | 차단기 상태부터 본다 |
 | TS-42 | 수 ms 만의 503을 Eureka 이탈로 오판 | 실제로는 `auth-redis` 차단기 OPEN | 503은 로그·지표로 출처부터 구분 |
+| TS-54 | 배포와 되돌림이 모두 실패 | Zipkin 힙 OOM으로 unhealthy, `up --wait` 실패 | 관측 도구도 메모리 상한 대상이다 |
+| TS-58·59 | Gateway OOM 3회, 메모리만 늘리면 더 느려짐 | 동시 처리 수에 상한이 없음 | 상한 64 + 거절을 HttpHandler 앞단으로 |
+| TS-61 | 배포가 자동으로 되돌려짐 | OpenSSL 3이 만든 SEC1 개인키를 Java가 못 읽음 | 키 형식을 PKCS#8로 고정 |
+| TS-71 | 결제 서비스가 하루 5번 죽음 | 힙 밖 메모리가 cgroup 상한 초과 | Metaspace·Direct 등에도 상한 |
+| TS-72 | 자동 배정 확정 433건, 커넥션 고갈 | 회차 안 좌석만 읽을 인덱스가 없어 249만 행 스캔 | `(schedule_id, id)` 등 인덱스 3개 |
+| TS-77 | 서비스는 17ms인데 Gateway 503 | 큰 좌석 응답이 Gateway 상한 자리를 오래 점유 | 배포 측정이 local 결론을 뒤집음. 상한 64 유지 |
 
 ## 면접 포인트
 
@@ -189,4 +210,4 @@ Mock PG는 `DELAY`, `DECLINE`, `DROP_RESPONSE`, `PROCESSING`, `SERVER_ERROR`, `R
 
 - `docs/design/payment/events-and-reliability.md`, `failure-scenarios.md`, `mock-pg.md`, `manual-recovery.md`
 - `docs/design/reservation/hold-expiry.md`, `seat-ledger-reconciliation.md`
-- ADR 0005, 0016~0020, 0022, 0023, 0026~0029, 0035, 0038, 0048
+- ADR 0005, 0016~0020, 0022, 0023, 0026~0029, 0035, 0038, 0048, 0050, 0051, 0059, 0061, 0062

@@ -1,7 +1,7 @@
 ---
 title: 서비스 구성과 예매 흐름
 date: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-18
 asker: KWON-WOO
 level: 중급
 tags: [msa, gateway, kafka, saga, state-machine]
@@ -28,7 +28,7 @@ tags: [msa, gateway, kafka, saga, state-machine]
 
 | 모듈 | 하는 일 |
 |---|---|
-| gateway | Spring Cloud Gateway(WebFlux). JWT 검증, 로그아웃 블랙리스트 확인(Redis, 서킷 브레이커 `auth-redis`), `X-User-Id`·`X-User-Role` 전달, 경로를 PUBLIC/USER/ADMIN/INTERNAL로 판정, `/internal/**`은 외부에 404, 좌석 조회·선점에서 입장 토큰 검증 |
+| gateway | Spring Cloud Gateway(WebFlux). 맨 앞 동시 처리 상한 64(넘치면 503 `GATEWAY_OVERLOADED`), JWT 검증, 로그아웃 블랙리스트 확인(Redis, 서킷 브레이커 `auth-redis`), `X-User-Id`·`X-User-Role` 전달, 경로를 PUBLIC/USER/ADMIN/INTERNAL로 판정, `/internal/**`은 외부에 404, 좌석 조회·선점·자동 배정에서 입장 토큰 검증(검증한 토큰 ID를 `X-Entry-Token-Id`로 넘김), Swagger UI `/api/docs` |
 | eureka | 서비스 레지스트리 |
 | config-server | `config-repo/`를 읽어 설정을 나눠 준다 |
 | user-service | 회원가입, 로그인, Refresh 토큰 회전(Redis Lua), 로그아웃 블랙리스트, 관리자 임시 비밀번호 발급 |
@@ -50,30 +50,19 @@ tags: [msa, gateway, kafka, saga, state-machine]
 
 ## 3. 인프라
 
-| 구성 | 값 | 이유 |
-|---|---|---|
-| PostgreSQL 17 × 3 | user / reservation / payment | 서비스마다 DB 분리(Database per Service) |
-| Redis 8 | AOF 켜짐, noeviction | 대기열과 인증. 메모리가 차도 키를 몰래 지우지 않게 noeviction |
-| Kafka 4.1.1 | KRaft 단일 노드 | ZooKeeper 없이 동작 |
-| 관측 | Prometheus, Grafana, Loki, Alloy, Zipkin, Alertmanager | 지표, 로그, 추적, 슬랙 알림 |
-| 배포 | `compose.deploy.yml`, 이미지 `ghcr.io/iseonjwa/*:<커밋 SHA>`, Jenkins | EC2 한 대에 docker-compose |
-
-Spring Boot 4.1.2를 쓴다(`build.gradle`).
+PostgreSQL 17 세 개(서비스마다 하나), Redis 8 한 대, Kafka 4.1.1 브로커 한 대(KRaft), 관측 도구(Prometheus, Grafana, Loki, Zipkin, Alertmanager)를 EC2 한 대의 docker compose로 띄운다. Spring Boot 4.1.2, Java 21이다. 구성과 고른 이유, 배포 파이프라인은 [05 인프라](05-infrastructure.md)에 모았다.
 
 ## 4. 예매 한 건의 흐름 (일반 예매)
 
 > 비유: 놀이공원. 번호표 받기 → 전광판에 내 번호가 뜨면 탑승권 받기 → 자리에 가방 올리기 → 매표소에서 결제 → 표 받기.
 
 1. 로그인 `POST /api/v1/auth/login`: Access·Refresh 토큰을 받는다. 이후 요청마다 Gateway가 JWT와 블랙리스트를 확인한다.
-2. 대기열 진입 `POST /schedules/{id}/queue`: Redis Lua(`enter.lua`)가 순번(seq)을 준다.
-3. 순번 조회 `GET /schedules/{id}/queue/me`: 3~10초 간격(jitter 포함)으로 폴링한다. `QueueAdmissionScheduler`가 500ms마다 돌며 `admitted` 값을 초당 50명씩 올린다(`config-repo/reservation-service.yml`의 `admit-per-second: 50`). 내 seq가 admitted 이하면 READY다.
-4. 입장 토큰 발급 `POST /schedules/{id}/queue/token`: HS256, 10분짜리 토큰. claim에 회차 ID가 들어 있다.
-5. 좌석 조회 `GET /schedules/{id}/seats`: Gateway가 입장 토큰의 서명·만료·사용자·회차를 검사한다.
-6. 좌석 선점 `POST /schedules/{id}/reservations`(Idempotency-Key 필요): `SyncSeatHoldService`가 한 트랜잭션에서 처리한다.
-   - 1인 매수 한도(최대 4매) 조건부 UPDATE
-   - 좌석 `AVAILABLE → HELD` 조건부 UPDATE(좌석 ID 오름차순)
-   - 예매·예매 좌석 HELD 저장, 요청 이력 저장
-   - 201과 함께 결제 토큰을 준다. 선점은 5분, 결제 토큰은 선점 만료 10초 전에 끝난다.
+2. 대기열 진입 `POST /schedules/{id}/queue`: Redis Lua(`enter.lua`)가 순번(seq)을 준다. 처음이면 201, 이미 있으면 200이다.
+3. 순번 조회 `GET /schedules/{id}/queue/me`: 3~10초 간격(jitter 포함)으로 폴링한다. `QueueAdmissionScheduler`가 500ms마다 돌며 `admitted` 값을 초당 50명씩 올린다(`config-repo/reservation-service.yml`의 `admit-per-second: 50`). 내 seq가 admitted 이하면 READY이고, 이 판정도 Lua 안에서 한다(ISE-282). 차례가 온 뒤 1분(`turn-ttl`) 안에 토큰을 받지 않으면 줄 맨 뒤로 간다.
+4. 입장 토큰 발급 `POST /schedules/{id}/queue/token`: HS256, 10분짜리 토큰. claim에 회차 ID와 토큰 ID(jti)가 들어 있다.
+5. 좌석 조회 `GET /schedules/{id}/seats`: Gateway가 입장 토큰의 서명·만료·사용자·회차를 검사한다. 좌석 배치는 서비스 메모리 캐시, 좌석 상태는 1초 캐시에서 읽는다(ADR 0054, [04 부하 테스트](04-load-test.md) 3절).
+6. 좌석 선점 `POST /schedules/{id}/reservations`(Idempotency-Key 필요): 운영 모드는 동기형(`seat-hold.mode: sync`)이다. 처리 순서는 아래 8절에 따로 적었다. 성공하면 201과 결제 토큰을 주고, 입장 토큰은 이때 소모된다(ADR 0053). 선점은 5분, 결제 토큰은 선점 만료 10초 전에 끝난다.
+   - 자동 배정 `POST /schedules/{id}/reservations/auto`: 좌석을 고르지 않고 등급이나 구역과 매수만 보내면 서버가 빈 좌석을 골라 잡는다(ADR 0059, 상태 "제안").
 7. 결제 `POST /api/v1/payments`(Idempotency-Key 필요):
    - 멱등 기록 조회 → 결제 토큰·금액 검증 → PG 호출 허가(Bulkhead·서킷 브레이커)
    - TX1: 결제 REQUESTED 저장 후 커밋
@@ -84,11 +73,12 @@ Spring Boot 4.1.2를 쓴다(`build.gradle`).
    - 승인 + HELD + 승인 시각이 선점 만료 전: CONFIRMED, 좌석 SOLD, 좌석별 티켓 ISSUED
    - 거절: RELEASED, 좌석과 매수 반환
    - 이상 상황(만료 뒤 승인, 중복 승인, 금액 불일치): 자동 환불 요청 → [03 장애 대응](03-resilience.md) 1절
-9. 결제하지 않으면 `SeatHoldExpiryScheduler`가 5초마다 만료 선점을 풀어 좌석을 AVAILABLE로 돌린다.
+9. 결제하지 않으면 `SeatHoldExpiryScheduler`가 1초마다(운영 설정, 코드 기본 5초) 만료 선점을 최대 100건씩 풀어 좌석을 AVAILABLE로 돌린다.
+10. 확정 뒤 사용자가 취소하면 `POST /reservations/{id}/cancel`(202): 예매 CANCELED, 좌석 AVAILABLE, 매수 반환, 티켓 무효화를 한 트랜잭션에서 하고 Outbox로 환불 명령(`RefundRequested`)을 보낸다. 추첨 예매는 취소할 수 없다.
 
 ### 왜 PG 호출을 트랜잭션 밖에서 하나
 
-PG 응답은 최대 2초가 걸린다. 트랜잭션 안에서 기다리면 그동안 DB 커넥션을 쥐고 있어 풀(기본 5개)이 금방 마른다. 그래서 "기록(TX1) → 외부 호출 → 반영(TX2)"으로 나눴다. 대신 TX1과 TX2 사이에 서버가 죽으면 REQUESTED가 남는데, 재확인 스케줄러가 이것을 정리한다.
+PG 응답은 최대 2초가 걸린다. 트랜잭션 안에서 기다리면 그동안 DB 커넥션을 쥐고 있어 결제 서비스 풀(20개)이 금방 마른다. 그래서 "기록(TX1) → 외부 호출 → 반영(TX2)"으로 나눴다. 대신 TX1과 TX2 사이에 서버가 죽으면 REQUESTED가 남는데, 재확인 스케줄러가 이것을 정리한다.
 
 ## 5. 추첨 자동결제 흐름
 
@@ -98,24 +88,24 @@ PG 응답은 최대 2초가 걸린다. 트랜잭션 안에서 기다리면 그�
 2. 사용자가 빌링키를 등록한다(`POST /api/v1/payments/billing-keys`).
 3. 응모 `POST /lotteries/{id}/entries`: 동기 INSERT로 201을 준다.
 4. `LotteryDrawScheduler`가 마감하고 추첨한다. 시드 기반 SHA-256 순위로 WON, WAITLISTED, LOST를 정한다. 시드가 같으면 결과가 같아 재현·검증할 수 있다.
-5. `LotteryAssignmentScheduler`(1초)가 당첨자 1명씩 시스템 선점으로 HELD 예매를 만들고, Outbox로 `payment.command`에 `BillingPaymentRequested`를 쓴다.
+5. `LotteryAssignmentScheduler`(1초)가 주기마다 최대 10명(`assign-per-cycle`)까지 당첨자를 시스템 선점으로 HELD 예매를 만들고, Outbox로 `payment.command`에 `BillingPaymentRequested`를 쓴다.
 6. payment의 `BillingPaymentService`가 빌링키로 결제하고 결과를 `payment.result`로 낸다.
 7. reservation이 예매를 확정하고 응모를 PAID 또는 FAILED로 바꾼다.
 8. 실패하면 `LotterySuccessionScheduler`가 예비자를 승계시킨다. 승계 마감은 추첨 후 30분이다.
 9. `LotteryFinishScheduler`가 추첨을 DONE으로 바꾸고 남은 추첨석을 원래 등급으로 돌린다.
 
-설계(SA)와 다른 점: SA는 응모를 Kafka `lottery.entry`로 받아 202를 주게 되어 있지만 코드는 동기 201이다.
+응모는 동기 INSERT로 201을 준다. SA 처음 안은 Kafka `lottery.entry`로 받아 202를 주는 것이었지만, 측정한 응모 p95가 10.58ms로 바꿀 조건(300ms 초과)에 닿지 않아 2026-11-15에 SA를 코드에 맞췄다.
 
 ## 6. Kafka 토픽
 
-| 토픽 | 이벤트 | 발행 → 구독 |
-|---|---|---|
-| `payment.result` (키 reservationId) | PaymentApproved, PaymentDeclined, PaymentRefunded | payment → reservation |
-| `payment.command` (키 reservationId) | RefundRequested, BillingPaymentRequested | reservation → payment |
-| `payment.result.dlq`, `payment.command.dlq` | 처리 실패 메시지 | 각 서비스의 DLQ 처리기 |
-| `seat-hold.request`, `lottery.entry` | 접수형 선점, 응모 | 설계만 |
+| 토픽 | 이벤트 | 발행 → 구독 | 키 | 파티션 |
+|---|---|---|---|---|
+| `payment.result` | PaymentApproved, PaymentDeclined, PaymentRefunded | payment → reservation | reservationId | 1 |
+| `payment.command` | RefundRequested(자동 환불, 사용자 취소), BillingPaymentRequested | reservation → payment | reservationId | 3 |
+| `seat-hold.request` | SeatHoldRequested(접수형 선점) | reservation → reservation | `{scheduleId}:{section}` | 6 |
+| `*.dlq` 3개 | 처리 실패 메시지 | 각 서비스의 DLQ 처리기 | 원래 키 | 1 |
 
-키를 reservationId로 잡아 같은 예매의 이벤트는 같은 파티션에 들어가 순서가 지켜진다. 이벤트 봉투는 `eventId, eventType, version, occurredAt, producer, traceId, payload`다(`common/.../event/EventEnvelope.java`).
+`lottery.entry`는 설계만 있다. 키를 reservationId로 잡아 같은 예매의 이벤트는 같은 파티션에 들어가 순서가 지켜진다. 파티션 수의 근거는 [05 인프라](05-infrastructure.md) 3절에 있다. 이벤트 봉투는 `eventId, eventType, version, occurredAt, producer, traceId, payload`다(`common/.../event/EventEnvelope.java`).
 
 ### 왜 결제 결과를 HTTP 호출이 아니라 Kafka로 넘기나
 
@@ -129,13 +119,32 @@ payment가 reservation을 직접 부르면 reservation이 잠깐 죽어 있을 �
 
 | 대상 | 상태 | 주요 전이 |
 |---|---|---|
-| 예매 | HELD, CONFIRMED, EXPIRED, RELEASED, CANCELED | HELD→CONFIRMED(승인), HELD→EXPIRED(만료), HELD→RELEASED(거절). CONFIRMED→CANCELED는 설계만 |
+| 예매 | HELD, CONFIRMED, EXPIRED, RELEASED, CANCELED | HELD→CONFIRMED(승인), HELD→EXPIRED(만료), HELD→RELEASED(거절), CONFIRMED→CANCELED(사용자 취소) |
+| 선점 요청 | REQUESTED, HELD, REJECTED | 접수형은 REQUESTED로 시작. 거절 사유는 SEAT_ALREADY_HELD, PURCHASE_LIMIT_EXCEEDED, PROCESSING_FAILED, TIMEOUT(30초) |
 | 회차 좌석 | AVAILABLE, HELD, SOLD | AVAILABLE→HELD→SOLD, HELD→AVAILABLE |
 | 결제 | REQUESTED, UNKNOWN, APPROVED, DECLINED, NEEDS_MANUAL_CHECK, REFUNDED | REQUESTED→APPROVED/DECLINED/UNKNOWN, UNKNOWN→재조회→확정 또는 NEEDS_MANUAL_CHECK, APPROVED→REFUNDED |
 | 환불 | REQUESTED, UNKNOWN, REFUNDED, NEEDS_MANUAL_CHECK, FAILED | FAILED는 운영자만 쓰는 종결 상태 |
 | 추첨 | OPEN → CLOSED → DRAWN → DONE | |
 | 응모 | ENTERED, CANCELED, WON, WAITLISTED, LOST, PAID, FAILED | WAITLISTED→WON(승계), WON→PAID/FAILED |
 | 대기열 | READY, WAITING, ADMITTED | |
+
+## 8. 좌석 선점 처리 순서 (동기형)
+
+> 비유: 식당 입구에서 먼저 "그 자리 벌써 찼어요"를 알려 주고(사전 거절), 들어온 손님은 자리 주인 확인을 50ms만 기다린다(잠금 시한). 오래 기다리게 하면 뒤 손님 줄 전체가 멈춘다.
+
+1. Gateway: JWT와 입장 토큰(서명, 만료, 사용자, 회차)을 검증한다.
+2. 캐시 사전 거절(ISE-281): 좌석 조회가 만든 1초 캐시에 이미 잡힌 좌석이면 쓰기 트랜잭션 없이 409를 준다. 같은 멱등키 기록이 있으면 그 결과를 돌려준다.
+3. 한 문장 사전 판정(ADR 0062 결정 1): 쓰기 트랜잭션 안에서 좌석·회차·멱등키·토큰 사용 여부를 쿼리 한 번으로 읽는다. 잡을 수 없는 좌석이 하나라도 있으면 아무것도 쓰지 않고 409를 준다.
+4. 요청 행 INSERT: 멱등키가 PK, 입장 토큰 ID에 부분 유니크가 있다. 같은 키·같은 토큰의 동시 요청은 여기서 한 줄로 선다.
+5. `lock_timeout = 50ms`(ADR 0061): 이후 모든 행 잠금 대기에 걸린다. 넘기면 409 `SEAT_ALREADY_HELD`로 답한다.
+6. 매수 조건부 UPDATE(한도 4매) → 예매·이력 INSERT → 요청 HELD → 좌석 `AVAILABLE→HELD` 조건부 UPDATE(좌석 ID 오름차순 `FOR UPDATE`) → 예매 좌석 INSERT(부분 유니크). 잠금을 가장 늦게 잡도록 순서를 바꿔 잠금 보유 시간을 줄였다(ADR 0062 결정 2).
+7. 커밋 뒤 트랜잭션 밖에서: 대기열의 발급 기록에서 입장 토큰을 지우고, 결제 토큰에 ES256으로 서명해 201을 준다.
+
+동시 처리 상한(`seat-hold.max-concurrent`, ADR 0062 결정 3)도 코드에 있지만 운영에서는 끈다. 이유는 [08 지금 방식이 합리적인 이유](08-why-current-design.md) 3절에 있다.
+
+### 접수형(async) 선점
+
+`seat-hold.mode: async`로 기동하면 같은 API가 202와 결과 조회 주소(`/reservations/requests/{id}`)를 준다. 요청 행과 Outbox 행을 한 트랜잭션에 쓰고, 소비자(동시성 2)가 Kafka에서 꺼내 위 6단계를 한다. 30초 안에 처리가 시작되지 않으면 TIMEOUT으로 거절한다. 운영 기본은 동기형이고, 접수형은 동기형과 비교 측정하려고 만들었다(ADR 0057). 모드는 기동 때 정하며, 오픈 중 비상 전환은 범위 밖이다.
 
 ## 면접 포인트
 
