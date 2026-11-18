@@ -30,10 +30,10 @@
 
 | 폴더 | 내용 |
 |---|---|
-| [hyoseung](hyoseung/README.md) | 개별 기록 2건, 일지 1일 |
-| [junhyun](junhyun/README.md) | 개별 기록 50건, 일지 5일 |
-| [kangmin](kangmin/README.md) | 개별 기록 40건, 일지 8일 |
-| [kwonwoo](kwonwoo/README.md) | 개별 기록 14건, 일지 4일 |
+| [hyoseung](hyoseung/README.md) | 개별 기록 7건, 일지 19일 |
+| [junhyun](junhyun/README.md) | 개별 기록 51건, 일지 5일 |
+| [kangmin](kangmin/README.md) | 개별 기록 121건, 일지 21일 |
+| [kwonwoo](kwonwoo/README.md) | 개별 기록 40건, 일지 12일 |
 | [youngeun](youngeun/README.md) | 개별 기록 4건, 일지 0일 |
 
 ## 팀 공통 판단
@@ -42,8 +42,83 @@
 
 | 날짜 | 판단 대상 | 판단자 | AI | 판단 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-17 | README를 브로셔 내용으로 꾸미자는 AI 안 대신, 배포 서버를 내린 뒤에도 읽히도록 프로젝트를 드러내는 README를 따로 쓰기로 함(ISE-308) | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-17-readme-not-brochure-copy.md) |
+| 2026-11-17 | 배포 측정(ISE-296) 결과로 선점 동시 처리 상한은 운영에서 켜지 않고 커넥션 풀은 5를 유지하기로 함(ADR 0062 갱신, ADR 0064 확인) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-17-limit-off-pool-keep-after-deploy.md) |
+| 2026-11-16 | 배포 서버 단계 측정(ISE-296)에서 A0가 게이트웨이 동시 처리 상한 64에 막혀, 상한을 끄고 S0부터 다시 재기로 함 | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-16-a0-deploy-gateway-inflight-off.md) |
+| 2026-11-16 | 추첨 배정 워커 속도 상한으로 A안(주기당 성공 배정 상한 10, 시도 상한 100 유지)을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-16-lottery-assign-per-cycle-cap.md) |
+| 2026-11-16 | 배포 측정을 설정 덮어쓰기로 단계를 올리며 한 번에 끝내는 AI 안을 받아들이고, ISE-293(503)을 측정 전에 넣고 ISE-261 이전 코드 비교는 뒤로 미룸 | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-16-deploy-step-measurement-plan.md) |
+| 2026-11-16 | 접수형 장애 때 동기형으로 급히 되돌리는 비상 전환을 AI 추천대로 범위 밖으로 둠(ISE-255, ADR 0057 변경) | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-16-ise255-emergency-switch-out-of-scope.md) |
+| 2026-11-16 | 공개 Grafana를 "로그인 없이 볼 수 있다"고 쓴 AI의 브로셔 문장이 실제와 다르다고 지적함(원인은 권한이 아니라 메모리 상한 재시작, PR #700) | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-16-grafana-unauthorized-memory-not-viewer-account.md) |
+| 2026-11-16 | Swagger PR(#685)에 config-repo 변경 알림용 contract 이슈와 다른 담당 리뷰어를 두자는 제안을 거부하고 바로 머지하기로 함 | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-16-swagger-pr-no-contract-no-reviewer.md) |
+| 2026-11-16 | 소개 영상 v2에서 하린을 웹툰풍으로 화면에 세우고 VoiceStudio 목소리 H2·N1을 고르고, AI가 짚은 대로 실제 동작과 다른 장면 6을 결제사 연결 불안정으로 바꿈 | junhyun | Claude Code, codex | 부분 수용 | 아님 | [기록](junhyun/2026-11-16-intro-video-v2-character-voice.md) |
+| 2026-11-16 | 최종 발표의 중심을 AI 활용에서 백엔드 설계·구현과 그 지표로 바꾸고, AI 검증 방법은 1분 내외로 줄임 | junhyun | Claude Code | 거부 | 아님 | [기록](junhyun/2026-11-16-final-talk-center-backend-metrics.md) |
+| 2026-11-16 | dev 병합 뒤 "기존 방식이 나은 점"에 대한 다른 기기 AI 분석을 측정으로 검증해, 캐시 사전 거절은 남기고("아끼는 몫이 작다"는 기각) 자동 배정 개선은 담당에게 제안하기로 함 | kwonwoo | Claude Code 두 세션 | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-16-verify-other-agent-precheck-analysis.md) |
+| 2026-11-16 | ISE-18 직접 발행을 커밋 뒤 전송·실패해도 202로 정하고, 측정 기준 코드에 ISE-261을 병합하기로 함(AI 추천 3개 모두 수용) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-16-ise18-direct-publish-after-commit.md) |
+| 2026-11-16 | 자동 배정 API contract(ISE-287)를 AI 대조 결과대로 확인 완료로 답하고 후속 제안 세 건을 함께 남김 | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-16-ise287-auto-assign-contract-confirmed.md) |
+| 2026-11-16 | 선점 동시 처리 상한만 키우지 않고 커넥션 풀과 함께 올려 로컬에서 재기로 함(config-repo는 ISE-237 결정대로 유지) | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-16-pool-and-limit-together.md) |
+| 2026-11-16 | **HTTPS 전환에서 파일마다 박힌 서버 주소를 https로 하나씩 고치려던 방향을 거부하고, 주소를 서버 .env의 PUBLIC_URL 한 곳에서 읽게 함** | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-16-server-address-in-one-env-key.md) |
+| 2026-11-16 | 시연과 외부 심사 채점 때 심사위원이 직접 보도록 Grafana만 HTTPS 경로(/grafana/)로 누구나 보기 전용으로 열기로 함 | junhyun | Claude Code | 수용 | 아님 | [기록](junhyun/2026-11-16-grafana-public-over-https-path.md) |
+| 2026-11-16 | 사용자 3,000명·좌석 15,000석으로 매진이 나지 않는 AI의 O1 조건을 현실과 멀다고 보고 수요 ≫ 좌석 매진 시나리오로 다시 재기로 함 | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-16-scarcity-scenario.md) |
+| 2026-11-16 | ISE-94 시나리오 3 미달을 정책으로 갈음하자는 AI 추천을 받지 않고 추첨 워커 속도 상한을 걸어 다시 재기로 함 | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-16-lottery-scenario3-remeasure.md) |
+| 2026-11-15 | 입장 토큰 유효 시간이 설정과 상수(EntryTokenClaims.TTL) 두 곳에 있는 문제를 설정 하나로 모으고, ISE-282와 나눠 ISE-283으로 진행하자는 AI 추천을 받아들임 | youngeun | Claude (Cowork) | 수용 | 아님 | [기록](youngeun/2026-11-15-entry-token-ttl-single-source.md) |
+| 2026-11-15 | **진입·순번 조회의 READY 판정을 앱에 두고 후속 이슈로 미루자는 AI 답·추천을 거부하고, ISE-282에서 Lua가 READY까지 돌려주게 바꿈** | youngeun | Claude (Cowork) | **거부** | 후보 | [기록](youngeun/2026-11-15-queue-ready-decided-in-lua.md) |
+| 2026-11-15 | 팀 답을 기다린 뒤 진행하자는 AI 계획을 받지 않고 ISE-269 4번 행 처리안과 ISE-230 안전망 상한을 선조치 후보고로 진행하기로 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-15-proceed-without-team-reply.md) |
+| 2026-11-15 | dev → main 뒤 재측정을 오늘은 하지 말자는 AI 추천을 받지 않고 main 기준 측정 뒤 같은 날 머지·재측정까지 하기로 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-15-remeasure-after-main-today.md) |
+| 2026-11-14 | Synthetic O1 측정 전 dev → main을 먼저 하자는 AI 추천을 받지 않고 지금 배포된 main(`e109c11c`)으로 측정하기로 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-14-measure-on-current-main.md) |
+| 2026-11-14 | 대기열 지표를 입장 처리 Lua에 얹고 회차별 라벨로 내보내자는 AI 첫 설계를 되물어, 읽기 전용 Lua와 회차 합계 게이지로 바꿈 | youngeun | Claude | 부분 수용 | 후보 | [기록](youngeun/2026-11-14-queue-metrics-design.md) |
+| 2026-11-14 | SA 14장 4번 행(응모 Kafka 접수 거부)과 10/29 동기 INSERT 수용의 어긋남을, 판단 칸은 덮어쓰지 않고 프롬프트 칸만 지금 고치고 이력 보존·#11 행 추가안을 팀 안건으로 올림 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-14-sa14-row4-keep-history-add-row.md) |
+| 2026-11-14 | 배포 측정 전 좌석 선점 개선안 중 계측 보강·만료 주기·토큰 서명 이동을 차례로 넣어 재고, 풀 크기(ISE-237)·캐시 읽기 메서드(ISE-281)는 contract로 | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-14-pre-deploy-improvements-2-5-6-and-contracts.md) |
+| 2026-11-14 | ISE-271에 PR AI 리뷰는 최소형 전부·위험 PR만 코멘트, 계약 경계 PR은 상대 확인·반나절 뒤 사후 확인으로 의견을 냄 | kangmin | Claude Code | 수용 | 아님 | [기록](kangmin/2026-11-14-ise271-review-minimum-all-comment-risky.md) |
+| 2026-11-14 | 발표 자료 세 가지(2분 영상, Notion 브로셔, 10분 발표)의 축과 형식을 AI 선택지에서 고르고, 브로셔는 Notion·발표자는 강민·AI 축은 제약·장치·일하는 방식·성장으로 직접 정함 | junhyun | Claude Code | 부분 수용 | 아님 | [기록](junhyun/2026-11-14-presentation-materials-plan.md) |
+| 2026-11-13 | 좌석 선점 구조 개선 세 가지(먼저 거절, 잠금 뒤로, 동시 처리 상한)를 AI 추천 순서대로 넣고 단계별로 부하 측정(ADR 0062) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-13-seathold-structure-three-fixes.md) |
+| 2026-11-13 | **AI가 먼저 추천한 SKIP LOCKED를 측정(C2 성공 83→56) 뒤 거부하고 잠금 대기 50ms를 택함(ADR 0061, TS-73)** | kwonwoo | Claude Code | **거부** | 후보 | [기록](kwonwoo/2026-11-13-reject-skip-locked-choose-50ms.md) |
+| 2026-11-13 | 좌석 선점 개선안 중 잠긴 좌석을 기다리지 않기(SKIP LOCKED)를 새 이슈 ISE-261로 먼저 함(뒤에 거부로 바뀜) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-13-seathold-skip-locked-first.md) |
+| 2026-11-13 | Synthetic O1 페르소나 세분화에서 AI가 낸 행동 축 6개 안을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-13-synthetic-persona-six-factors.md) |
+| 2026-11-13 | O1 시나리오 검토 제안 중 2~4번을 받아들이되 그림자 폴러는 multi_device에만 두고, 대기 이탈 비용은 별도 실행 대신 계산으로 보기로 함 | kangmin | Claude Code | 부분 수용 | 후보 | [기록](kangmin/2026-11-13-o1-scenario-review-four-proposals.md) |
+| 2026-11-13 | 대기열 조회만으로 정한 Gateway 통합 상한 64의 측정 범위를 지적하고, 섞인 트래픽에서는 통합 상한을 메모리 안전망으로 올리고 경로별 상한은 측정 뒤에 두자는 추천을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-13-in-flight-limit-as-safety-net-first.md) |
+| 2026-11-13 | **호출 한도가 있어 CodeRabbit을 넣지 않고, AI 코드 리뷰는 저장소 프롬프트와 스크립트(Claude·codex)로만 하기로 함** | junhyun | Claude Code | **거부** | 후보 | [기록](junhyun/2026-11-13-no-coderabbit-prompt-review-only.md) |
+| 2026-11-13 | 다른 조 저장소 5곳에서 스택·결정이 아니라 형식·판단 방식만 가져오기로 하고, 판정 기준 사전 고정·전/후 표·실패 시나리오 표·한계 표·ArchUnit·리뷰 보강·CodeRabbit 적용 설계를 맡김 | junhyun | Claude Code | 수용 | 후보 | [기록](junhyun/2026-11-13-borrow-formats-not-stacks-from-other-teams.md) |
+| 2026-11-13 | **팀원 지시문이 Claude Code 세션만 전제했다는 지적으로, 필수 산출물 작업을 팀원 모두가 채팅·CLI·터미널 어느 것으로든 돌리게 점검표와 키트로 바꿈** | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-13-deliverables-for-all-teammates-any-tool.md) |
+| 2026-11-13 | 발표 전 보완 제안(빈 필수 산출물, AI 코드 검토 방법, AI 대표 사례)을 받아들이고, 11/11 취소된 Synthetic Data를 발제 필수 항목으로 되살림(ISE-262·263) | junhyun | Claude Code | 수용 | 후보 | [기록](junhyun/2026-11-13-fill-presentation-gaps-restore-synthetic-data.md) |
+| 2026-11-13 | ISE-17 접수형 소비자의 30초 시한 경합은 요청 행 잠금(추천안)으로, 소비자 잠금 시한은 AI 추천(동기형과 같은 500ms) 대신 오픈 피크 지표가 나은 100ms로 정함 | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-13-ise17-consumer-lock-and-timeout-by-metrics.md) |
+| 2026-11-13 | ISE-277 서버 지표를 SLO 버킷 방식(reservation-service만, 버킷 8개)과 선점 결과 카운터(outcome 9개)로 ISE-17보다 먼저 처리함 | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-13-ise277-slo-buckets-before-ise17.md) |
+| 2026-11-13 | 접수형 소비자(ISE-17)보다 입장 토큰 소모(ISE-207) 선점 쪽 구현을 먼저 함 | kwonwoo | Claude Code | 수용 | 아님 | [기록](kwonwoo/2026-11-13-ise207-before-ise17.md) |
+| 2026-11-13 | **입장 토큰 소모 뒤 `issued` 정리를 AFTER_COMMIT 리스너(ADR 0053 초안) 대신 트랜잭션 밖 메서드 호출로 바꿈(리스너는 커넥션 반납 전에 돎)** | 팀 (권영은 제안, kwonwoo 동의) | Claude Code | **거부** | 후보 | [기록](kwonwoo/2026-11-13-entry-token-discard-by-method-not-listener.md) |
+| 2026-11-13 | **입장 토큰 소모 뒤 issued 정리를 이벤트 리스너로 유지하자는 AI 추천을 거부하고, 커넥션을 오래 잡지 않게 선점 쪽이 트랜잭션 밖에서 대기열 메서드를 jti와 함께 부르게 함** | youngeun | Claude | **거부** | 후보 | [기록](youngeun/2026-11-13-entry-token-discard-method-call.md) |
+| 2026-11-13 | **ISE-230 남은 확인 세 건은 답을 받은 뒤 마무리하자는 AI 순서를 거부하고, Retry-After 분리(A안)와 ADR 0050·0052 채택·대시보드·경보를 선조치 후보고로 진행함** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-13-adopt-adr-0050-0052-before-replies.md) |
+| 2026-11-13 | 결제 토큰 발급 포트를 seathold에서 reservation 모듈로 옮기자는 추천을 받아들이고 직접 맡아 판정 통합까지 처리함 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-13-move-payment-token-issuer-to-reservation.md) |
+| 2026-11-12 | 대기열 Redis 차단기 값을 Gateway auth-redis와 같게 두되, 느린 호출 기준을 AI 제안 50ms 대신 100ms로 올리고 공통 Redis 시한을 200ms로 늘림 | youngeun | Claude | 부분 수용 | 후보 | [기록](youngeun/2026-11-12-queue-redis-circuit-breaker-values.md) |
+| 2026-11-12 | **걸릴 일이 없는 Gateway Lettuce 시한 300ms를 "마지막 안전망"으로 유지하자는 AI 결론을 거부함** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-12-reject-keep-dead-lettuce-timeout.md) |
+| 2026-11-12 | 선점 뒤 issued 정리를 리스너 대신 훅 메서드로 하자는 추천을 담당 의견을 받은 뒤 정하기로 함(ISE-207) | kangmin | Claude Code | 보류 | 아님 | [기록](kangmin/2026-11-12-issued-cleanup-hook-over-listener.md) |
+| 2026-11-12 | Mock PG 원장 유실로 닫을 수 없는 환불 NMC를 묵음 처리하려다 철회하고 결제 담당에게 맡김 | kangmin | Claude Code | 보류 | 아님 | [기록](kangmin/2026-11-12-silence-refund-manual-check-aging.md) |
+| 2026-11-12 | 모드 전환 뒤 같은 키 재요청 500 빈틈을, 접수형으로 시작한 요청은 202로 답하는 C안으로 막음(ADR 0058) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-12-sync-replay-of-async-requests.md) |
+| 2026-11-12 | 접수형 선점(ISE-16)의 남은 결정 다섯 가지를 추천안대로 정함. 접수에서 이미 잡힌 좌석은 즉시 409(측정 87% 근거, ADR 0057) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-12-async-seat-hold-intake-decisions.md) |
+| 2026-11-12 | 접수형 선점에서 구역이 섞인 요청을 거부하자는 첫 추천 대신, 가장 작은 구역을 메시지 키로 쓰는 2안을 고름(ADR 0056) | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-12-async-seat-hold-mixed-section-key.md) |
+| 2026-11-12 | 추첨 쪽이 요청한 PG 허가 조정(ISE-236)에 일반 결제 허가는 17보다 큰 24~30(PAY1-b 측정 뒤 확정), 자동결제는 전용 그룹 `pg-billing` 3으로 답하기로 함 | junhyun | Claude Code | 수용 | 후보 | [기록](junhyun/2026-11-12-pg-permits-approve-and-billing-group.md) |
+| 2026-11-12 | **입장 토큰 소모 시점으로 AI가 추천한 A'(선점 시 소모 + 한 번 더 기회) 대신, 팀 회의에서 A(선점 성공 시 소모)로 정함** | 팀(kangmin 전달) | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-12-entry-token-consume-on-hold-team-decision.md) |
+| 2026-11-12 | **Gateway 과부하 발표 자료를 HTML 슬라이드로 만들자는 AI 추천을 거부하고, 소스 문서만 정리해 결제 담당이 가공하게 함** | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-12-presentation-source-only.md) |
+| 2026-11-12 | 좌석 배치는 로컬 캐시가 Redis보다 낫다는 AI 설명을 그대로 받지 않고, Redis로도 구현해 측정으로 비교하게 함 | kwonwoo | Claude Code | 보류 | 후보 | [기록](kwonwoo/2026-11-12-verify-local-vs-redis-layout-cache-by-measurement.md) |
+| 2026-11-12 | **Gateway CPU를 줄이려 대기열 폴링 상한(poll-max)을 10초에서 30초로 늘리자는 AI 제안을 거부함** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-12-reject-poll-max-30s.md) |
+| 2026-11-12 | **요청 로그 PR은 리뷰 뒤 머지하고 재측정은 11/13에 하자는 AI 계획을 거부하고, 리뷰 전에 main까지 반영해 바로 배포 측정함(선조치 후보고)** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-12-merge-and-deploy-before-review.md) |
+| 2026-11-12 | 측정표 답글·결제와 예매 DB 풀 contract·요청 로그 B안 설계·R0 준비에 대한 AI 추천 9건(D1~D9)을 그대로 받아들임 | kangmin | Claude Code | 수용 | 아님 | [기록](kangmin/2026-11-12-accept-d1-d9-posting-and-h2-plan.md) |
 | 2026-11-12 | **좌석 조회·갱신 통합(1-1)에서 사전 배치 캐시 참조를 캐시 스탬피드·커넥션 교착 위험으로 거부하고, 15개 성능 개선안의 손익을 검증해 후속 작업 대상을 추림** | kwonwoo | Antigravity (Gemini) | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-12-pr458-perf-options-stampede-and-net-benefit.md) |
+| 2026-11-11 | 대기열 Redis 시한 초과를 503으로 바꾸는 위치로, 컨트롤러 처리기 대신 저장소에서 대기열 예외로 바꾸는 안(A)을 고름 | youngeun | Claude | 수용 | 후보 | [기록](youngeun/2026-11-11-queue-redis-timeout-503-layer.md) |
+| 2026-11-11 | 배포 서버 7차에서 요청 로그 비용이 확인되자, 운영 요청 로그를 실패·느린 요청만 남기는 안(B)을 고름 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-11-request-log-failures-and-slow-only.md) |
+| 2026-11-11 | **H1 배포와 7차 측정을 내일 아침에 하자는 AI 추천을 거부하고, H1 PR이 dev에 머지되면 오늘 이어서 배포·측정함** | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-11-run-7th-measurement-today.md) |
+| 2026-11-11 | **Gateway 동시 처리 수 상한 기본값을 128로 올리자는 6차 세션 제안을 거부하고, p95 여유를 이유로 64 유지를 추천한 메인 세션 안을 받아들임** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-11-keep-in-flight-limit-64.md) |
+| 2026-11-11 | Gateway CPU 포화와 OOM을 막는 첫 장치로 맨 앞 동시 처리 수 상한을 고르고, 설계안·프런트 표시·첫 상한 64를 AI 추천대로 정함 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-11-gateway-in-flight-limit-first.md) |
+| 2026-11-11 | Gateway CPU의 약 24%를 쓰는 관측(추적·지표·로그 문맥) 축소를 위험하다고 보고 보류함 | kangmin | Claude Code | 보류 | 아님 | [기록](kangmin/2026-11-11-defer-gateway-observability-reduction.md) |
+| 2026-11-11 | **긴 측정 뒤 배포 실패를 막으려고 Zipkin 힙을 늘리자는 AI 추천을 거부하고, 메모리 설정은 두고 스케줄러 Redis 스팬을 근원에서 줄이며 이미지 받기 재시도를 더함** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-11-reduce-scheduler-redis-spans-keep-zipkin-memory.md) |
+| 2026-11-11 | **한 서버 자원 격리 개선(M1 메모리 예산 등)을 contract 이슈로 인프라 담당과 먼저 합의하자는 AI 추천을 거부하고, 측정과 함께 순서대로 바로 진행함** | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-11-resource-isolation-without-infra-agreement.md) |
+| 2026-11-11 | **Gateway CPU 포화를 맨 앞 유입 제한으로 막자는 AI 추천을 거부하고, auth-redis 차단기를 단계적으로 예민하게 바꿔 포화 전에 열리는지 먼저 실험함** | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-11-breaker-first-for-gateway-cpu-saturation.md) |
 | 2026-11-11 | 결제 쪽 취소 환불을 위해 기다리던 예매 취소 API(ISE-206)를 직접 만들기로 하고, 취소 정책(공연 시작 전까지·추첨 예매 제외·결제 조회로 환불 상태 표시·담당 변경)은 AI 추천안을 받아들임 | junhyun | Claude Code | 수용 | 후보 | [기록](junhyun/2026-11-11-reservation-cancel-takeover-policy.md) |
+| 2026-11-11 | PR 487 대기열 담당 리뷰 반영에서 오픈 피크용 거절 경보를 따로 두자는 AI 추천(A안)을 받아들임 | kangmin | Claude Code | 수용 | 아님 | [기록](kangmin/2026-11-11-pr487-review-peak-alert.md) |
+| 2026-11-11 | Gateway auth-redis 운영값을 G1 2회 값(필터 시한 200ms·Lettuce 300ms)으로 정하고 bulkhead 거절 비율 경보를 같이 넣자는 AI 추천을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-11-gateway-auth-redis-operating-values.md) |
+| 2026-11-11 | F1 장애 주입의 실행 주체(이번만 에이전트 SSH 실행 예외)·Kafka 정지·NOT_SENT 테스트 대체·경보 범위·선점 만료 앞당기기를 AI 추천안대로 정함 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-11-f1-execution-decisions.md) |
+| 2026-11-11 | F1-a 결제 서버 강제 종료를 첫 결제 행 감지 시 자동 kill로 바꾸고 추첨석은 절차서대로 20석 유지 | kangmin | Claude Code | 수용 | 아님 | [기록](kangmin/2026-11-11-f1a-auto-kill-trigger.md) |
+| 2026-11-11 | F1을 측정 모드 없이 하자는 AI 추천을 거부하고, 배포 서버 테스트는 측정 모드 on과 팀 알림을 필수로 함 | kangmin | Claude Code | 거부 | 후보 | [기록](kangmin/2026-11-11-f1-measure-mode-required.md) |
+| 2026-11-11 | 자동결제·일반 결제 한도 개선에서 전용 허가 d1과 Erlang B 산정은 AI 추천을 받아들이고, 일반 결제 목표는 추천 없이 초당 30으로 정함 | kangmin | Claude Code | 부분 수용 | 후보 | [기록](kangmin/2026-11-11-lottery-billing-isolation-and-approve-size.md) |
+| 2026-11-10 | 좌석 조회 경량화는 담당자(반효승)가 dev에 넣은 P4a를 살려 진행하고, 측정 브랜치 코드는 참고로만 둠 | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-10-adopt-owner-p4a-keep-measurement-code-as-reference.md) |
 | 2026-11-10 | auth-redis 재측정 값을 느린 호출 100ms·80%, 시한 200ms, 벌크헤드 50(거절은 차단기 집계에서 제외), 실패율 50%로 하자는 AI 추천을 받아들임 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-10-auth-redis-timeout-bulkhead-measure-values.md) |
 | 2026-11-10 | 토스 테스트 결제창도 실제 카드 인증이 필요해 "토스연동 건너뛰고 결제하기"를 두기로 하고, 결제마다 PG를 기록하며 빌링은 늘 Mock으로 보내는 추천안을 수용함 | junhyun | Claude Code | 수용 | 후보 | [기록](junhyun/2026-11-10-toss-mock-bypass-per-payment-pg.md) |
 | 2026-11-10 | 이슈 자동 완료를 피하려고 PR 제목·브랜치에서 이슈 번호를 뺀 AI 방식을 거부하고, 번호를 넣은 채 연결 종류로 완료를 막게 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-10-keep-issue-number-in-pr-title.md) |
@@ -54,6 +129,8 @@
 | 2026-11-10 | 식은 Gateway Q1 결과 문서에서 실패 1.0s를 "제한시간 1s 실패"가 아니라 "100ms 시한 초과의 기록값일 가능성"(dev #463 근거)으로 쓰기로 함 | youngeun | Claude Code | 수용 | 후보 | [기록](youngeun/2026-11-10-slow-call-threshold-cold-gateway.md) |
 | 2026-11-10 | bulkhead 비교 전에 워밍업 방식부터 확인하고 덤 몰림 포함 워밍업을 표준으로 정함. bulkhead 25·100 모두 Q1 한도 같음 | youngeun | Claude Code | 수용 | 후보 | [기록](youngeun/2026-11-10-bulkhead-comparison-warmup-standard.md) |
 | 2026-11-10 | **배포 Q1 auth-redis 차단기 열림에 측정용 차단기 기준 완화를 거부하고 워밍업 뒤 재측정을 고름** | youngeun | Claude Code | **거부** | 후보 | [기록](youngeun/2026-11-10-no-breaker-relax-for-measurement.md) |
+| 2026-11-09 | P4d 조건이 맞았지만 K1 좌석 조회 개선을 P4c에서 마치고 K1-H로 넘어감 | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-09-k1-stop-at-p4c-skip-p4d.md) |
+| 2026-11-09 | 측정 기기를 옮길 때 번들 대신 브랜치를 푸시하고, 세션 핸드오프 메모는 푸시하지 않고 직접 옮김 | kwonwoo | Claude Code | **거부** | 아님 | [기록](kwonwoo/2026-11-09-push-measurement-branches-keep-handoff-local.md) |
 | 2026-11-09 | "Gateway에는 벌크헤드가 없다"는 AI 조사 결과를 팀원 지적으로 다시 확인해 틀렸다고 판단함(기본 벌크헤드 동시 25) | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-09-gateway-has-default-bulkhead.md) |
 | 2026-11-09 | 측정 전 main 반영에 팀원 PR을 넣을지 묻자는 제안을 두고, 팀원 PR은 측정하지 않을 때 상황을 봐서 넘기기로 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-09-team-prs-not-in-freeze-merge.md) |
 | 2026-11-09 | 측정 모드 알림을 성능-모니터링 채널에 두지 않고 별도 채널로 옮기고, 배포 알림처럼 꾸미기로 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-09-measure-mode-alert-own-channel.md) |
@@ -68,6 +145,7 @@
 | 2026-11-09 | 자동결제 겹침 contract 이슈를 추천안 하나로 좁히지 않고 모든 선택지·트레이드오프를 담아 결제 담당과 고르기로 함 | kangmin | Claude Code | 부분 수용 | 후보 | [기록](kangmin/2026-11-09-billing-overlap-issue-all-options.md) |
 | 2026-11-09 | 입장 토큰 만료 시점으로 결제 완료 대신 좌석 선점 성공 시점을 고름 | kangmin | Claude Code | 수용 | 후보 | [기록](kangmin/2026-11-09-entry-token-consume-on-hold.md) |
 | 2026-11-09 | 부하 발생기 EC2 안내가 1인용 구성이라 팀 공용(팀원 IP·키, 각자 폴더, 한 번에 한 측정)으로 바꾸게 함 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-09-loadgen-shared-by-team.md) |
+| 2026-11-08 | 좌석 배치 캐시(P4b)를 Redis가 아니라 서비스 메모리에 두되, AI 설명만으로 채택하지 않고 측정 뒤 확정 | hyoseung | Claude Code | 수용 | 후보 | [기록](hyoseung/2026-11-08-seat-layout-cache-memory-not-redis.md) |
 | 2026-11-08 | 커넥션 대기 1초 동의와 추첨 시나리오 L1~L3 검토 의견을 AI 초안 그대로 Linear에 올림 | kangmin | Claude Code | 수용 | 아님 | [기록](kangmin/2026-11-08-connection-timeout-and-lottery-scenario-review.md) |
 | 2026-11-08 | 서버 측정을 11/13 재가동 뒤로 두자는 일정안 거부, 11/9에 서버를 켬 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-08-server-start-tomorrow.md) |
 | 2026-11-09 | 오류 응답이 Accept에 따라 비는 결함을 상담 서비스 안이 아니라 공통 예외 처리기(common)에서 고치기로 함(ISE-221) | junhyun | Claude Code | 수용 | 아님 | [기록](junhyun/2026-11-09-error-response-json-in-common.md) |
@@ -88,6 +166,8 @@
 | 2026-11-05 | MVP 시연: 장애 현장 대체 제안 거부, 장애 상황도 함께 보임 | kangmin | Claude Code | **거부** | 후보 | [기록](kangmin/2026-11-05-demo-show-failures-live.md) |
 | 2026-11-05 | MVP 시연: 추첨은 응모자를 적재해 실제처럼 모의 진행 | kangmin | Claude Code | 부분 수용 | 후보 | [기록](kangmin/2026-11-05-demo-lottery-seeded-entries.md) |
 | 2026-11-05 | MVP 시연: 영역 담당별 진행 제안 거부, 통합 진행 | kangmin | Claude Code | **거부** | 아님 | [기록](kangmin/2026-11-05-demo-single-integrated-presenter.md) |
+| 2026-11-07 | K1-H를 막은 Gateway 인증 차단기를 측정 환경에서만 완화(느린 호출 판정 끔)하고, Gateway 담당과의 조율은 측정이 끝난 뒤로 보류 | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-07-k1h-relax-gateway-breaker-in-measurement.md) |
+| 2026-11-06 | k6 단계별 개선을 수정 없는 기본 코드에서 시작해 병목을 직면하는 순서로 다시 설계(G1·R1·S4도 단계로, 워밍업 1분, 최종도 local) | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-06-k6-steps-from-unmodified-base.md) |
 | 2026-11-06 | 좌석 조회 경량화(P4) 측정을 반효승 담당에서 일부 가져와 좌석 선점과 같은 환경(측정 브랜치)에서 재고, 본 구현은 ISE-189에 둠 | kwonwoo | Claude Code | 부분 수용 | 후보 | [기록](kwonwoo/2026-11-06-measure-p4-seat-map-in-own-environment.md) |
 | 2026-11-05 | 시연 모드 Grafana 링크를 localhost:3000에 고정한 AI 설계를 거두고, 배포 서버 Grafana를 팀원 IP로 열어 화면을 연 호스트 기준으로 잇게 함 | junhyun | Claude Code | **거부** | 아님 | [기록](junhyun/2026-11-05-grafana-link-deploy-host.md) |
 | 2026-11-05 | 배포 서버 앱의 GC는 리허설(11/6)까지 Serial로 두고, 다음 주 부하 측정 전에 G1을 명시하기로 함 | junhyun | Claude Code | 수용 | 아님 | [기록](junhyun/2026-11-05-deploy-g1-after-rehearsal.md) |
@@ -101,6 +181,7 @@
 | 2026-11-04 | 리허설 일정에 맞춰 측정 전에 배포 EC2를 16GB급으로 정하고 AWS Paid plan으로 바꿈 | junhyun | Claude Code | 수용 | 아님 | [기록](junhyun/2026-11-04-deploy-ec2-16gb-paid-plan.md) |
 | 2026-11-04 | M3 배포 순서(173·178 → 176 → 174·177 → 175)를 받아들이고 프론트 nginx(ISE-109)를 M4에서 M3로 당겨 이미지 워크플로(ISE-173)와 함께 함 | junhyun | Claude Code | 부분 수용 | 아님 | [기록](junhyun/2026-11-04-m3-deploy-order-with-ise109.md) |
 | 2026-11-04 | 배포용 AWS 계정 운영: 시드니 리전 유지(서울 전환 안 함), 팀원은 각자 SSH 키와 IP로 접속하고 콘솔 초대는 필요한 사람만 | junhyun | Claude Code | 수용 | 아님 | [기록](junhyun/2026-11-04-aws-region-and-team-access.md) |
+| 2026-11-03 | payment.result DLQ 처리기(#282)의 AI 리뷰 지적을 선택 사항까지 모두 받아 고치고 테스트 5개 → 9개 | hyoseung | Claude Code | 수용 | 후보 | [기록](hyoseung/2026-11-03-dlq-review-fixes-all-accepted.md) |
 | 2026-11-03 | ISE-79 동시성 시나리오(S0~S4, C1~C7, L1~L6)와 이슈 전제 검토를 수용하고 워크트리에서 단계별 실측 | kwonwoo | Claude Code | 수용 | 후보 | [기록](kwonwoo/2026-11-03-ise79-scenarios-measure-in-worktree.md) |
 | 2026-11-03 | 배포·관측·부하 측정 설계: AI 추천 대부분 수용, Jenkins를 더하고 main 머지 자동 배포·오픈 피크 전체 시나리오를 고름, 요청 로그는 공통 필터로 | junhyun | Claude Code | 부분 수용 | 후보 | [기록](junhyun/2026-11-03-deploy-observability-loadtest-design.md) |
 | 2026-11-03 | 반효승 PR #282(DLQ 처리기)·#283(대사 내부 조회 API) AI 리뷰를 PR 코멘트로 남기고, 대사 응답 모양은 #283에 맞춰 결제 쪽 어댑터를 고치기로 함 | junhyun | Claude Code, Opus 리뷰 | 수용 | 아님 | [기록](junhyun/2026-11-03-review-hyoseung-dlq-and-reconciliation-api.md) |

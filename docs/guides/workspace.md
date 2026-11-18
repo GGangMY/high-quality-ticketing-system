@@ -44,7 +44,7 @@ docker compose -f compose.yml -f compose.local.yml up -d --build --wait --wait-t
 
 화면은 http://localhost:8000에서 연다(frontend nginx, `/api/`는 Gateway로 중계). 첫 `docker compose up`에는 프론트 이미지 빌드(도커 안에서 Node로, 처음 몇 분)가 더해진다. 화면만 고칠 때는 `frontend/`에서 `npm run dev`(5173)가 더 빠르다.
 
-환경변수 생성기는 .env가 있으면 덮어쓰지 않는다. 그래서 `PAYMENT_TOKEN_SECRET`이 생기기 전에 만든 .env에는 키가 없다. 이 경우 `openssl rand -hex 32`로 만든 값을 `PAYMENT_TOKEN_SECRET=`에 직접 넣는다(없으면 compose가 시작 전에 오류로 멈춘다). 새 파일은 0600으로 만들고 값을 출력하지 않는다. 변수 목록은 .env.example에 있다. 실제 키·비밀번호는 .env에만 두고 커밋하지 않는다. Config Server에는 이 비밀값을 전달하지 않고 각 클라이언트 프로세스의 환경변수로 주입한다.
+환경변수 생성기는 .env가 있으면 덮어쓰지 않는다. 그래도 `./gradlew initLocalEnv`를 다시 실행하면 빠진 키만 덧붙인다. 결제 토큰 키 쌍(`PAYMENT_TOKEN_PRIVATE_KEY`·`PAYMENT_TOKEN_PUBLIC_KEY`, ES256, ADR 0055)은 둘 다 없을 때만 한 쌍을 만들고, 하나만 있으면 새로 만들지 않고 없는 키를 알리며 실패한다(짝이 어긋나면 모든 결제가 403이 된다). 이전 `PAYMENT_TOKEN_SECRET` 줄은 더 읽지 않는다(없으면 compose가 시작 전에 오류로 멈춘다). 새 파일은 0600으로 만들고 값을 출력하지 않는다. 변수 목록은 .env.example에 있다. 실제 키·비밀번호는 .env에만 두고 커밋하지 않는다. Config Server에는 이 비밀값을 전달하지 않고 각 클라이언트 프로세스의 환경변수로 주입한다.
 
 JVM runner와 Java 시스템 테스트는 컨테이너 생성 없이 Compose의 dotenv 해석 결과를 사용한다. 따옴표·주석·이스케이프·보간을 지원하고, 쉘 환경변수가 .env보다 우선하는 규칙을 유지한다. 값은 출력하지 않는다.
 
@@ -123,13 +123,17 @@ Gateway는 준비 완료 전에 Redis PING으로 실제 연결을 예열한다. 
 
 입장·결제 토큰, 대기열·예약·결제 업무, Mock PG 승인·환불, Outbox·재시도·DLQ 처리 로직은 아직 없다. local 전용 진단 API는 identity와 bootstrap.integration 이벤트 송수신만 확인한다. loadtest·prod에서는 진단 컨트롤러가 생성되지 않는다.
 
+## API 문서(Swagger)
+
+[Swagger UI](http://localhost:8080/api/docs)는 Gateway가 띄운다. 위쪽 드롭다운에서 서비스(user·reservation·payment·assistant)를 고른다. 화면(nginx) 주소의 `/api/docs`로도 열린다. 로그인이 필요한 API는 `POST /api/v1/auth/login`으로 받은 accessToken을 Authorize에 넣고 부른다. 좌석 조회·선점은 대기열에서 받은 입장 토큰을 `X-Entry-Token` 칸에 넣는다. 요청은 Gateway를 거치므로 인증·역할 검사가 화면과 같다. 내부 API(`/api/v1/internal/**`)는 문서에 없다. 구조와 이유는 [ADR 0063](../decisions/0063-swagger-ui-at-gateway.md)다.
+
 ## 관측성
 
 - [Grafana](http://localhost:3000): admin 계정, 비밀번호는 개인 .env. 기본 대시보드 uid는 iseonjwa-bootstrap이다. traceId로 요청 하나의 로그와 트레이스를 보는 대시보드는 [요청 로그](http://localhost:3000/d/iseonjwa-request-logs)다.
 - [Prometheus](http://localhost:9090/targets): 앱 7개의 별도 관리 포트를 수집한다.
 - [Alertmanager](http://localhost:9093): Prometheus 알림을 묶어 슬랙으로 보낸다. 웹훅(SLACK_WEBHOOK_MONITORING)이 없으면 보내지 않는다.
   - 웹훅이나 `STACK_ENV`를 바꾸면 `docker compose up -d --force-recreate alertmanager prometheus`로, `infra/alertmanager/` 설정만 바꿨으면 `curl -X POST localhost:9093/-/reload`로 반영한다.
-- Loki·Alloy: Alloy가 앱 7개의 컨테이너 로그를 Loki에 모은다(7일 보관). 호스트 포트가 없고 Grafana의 Loki 데이터 소스(`loki`)로 본다. 앱을 JVM으로 호스트에서 띄우면 그 로그는 Alloy가 모으지 않는다. 요청마다 한 줄(`요청 메서드 경로 상태 시간ms`)을 남기는 필터는 `iseonjwa.request-log.enabled`(기본 true, `config-repo/application.yml`)로 끈다.
+- Loki·Alloy: Alloy가 앱 7개의 컨테이너 로그를 Loki에 모은다(7일 보관). 호스트 포트가 없고 Grafana의 Loki 데이터 소스(`loki`)로 본다. 앱을 JVM으로 호스트에서 띄우면 그 로그는 Alloy가 모으지 않는다. 요청 한 줄(`요청 메서드 경로 상태 시간ms`)을 남기는 필터는 `iseonjwa.request-log.enabled`(기본 true, `config-repo/application.yml`)로 끈다. 로컬은 모든 요청을 남기고(`application-local.yml`의 `mode: all`), 배포는 5xx·끊긴 요청·200ms 이상만 남긴다(`mode: problems`, ADR 0052).
 - [Zipkin](http://localhost:9411): Gateway와 서비스의 같은 trace를 확인한다.
 - [Kafka-UI](http://localhost:8085): iseonjwa 클러스터를 확인한다.
 

@@ -52,7 +52,7 @@ describe('AppLayout', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '로그아웃' }))
 
-    expect(await screen.findByText('로그아웃했어요')).toBeInTheDocument()
+    expect(await screen.findByText('로그아웃되었습니다')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
     expect(visited).not.toContain('/login')
   })
@@ -68,7 +68,7 @@ describe('AppLayout', () => {
     expect(sessionStore.getState().refreshToken).toBeNull()
     expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined()
     expect(router.state.location.pathname).toBe('/')
-    expect(await screen.findByText('로그아웃했어요')).toBeInTheDocument()
+    expect(await screen.findByText('로그아웃되었습니다')).toBeInTheDocument()
   })
 
   it('처음 화면에서 로그아웃해도 공개 조회인 공연 목록은 그대로 두어 깜빡이지 않는다', async () => {
@@ -80,7 +80,7 @@ describe('AppLayout', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '로그아웃' }))
 
-    expect(await screen.findByText('로그아웃했어요')).toBeInTheDocument()
+    expect(await screen.findByText('로그아웃되었습니다')).toBeInTheDocument()
     expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined()
     expect(
       screen.getByRole('link', { name: '노을섬 단독 콘서트 〈새벽의 좌석〉' }),
@@ -113,7 +113,7 @@ describe('AppLayout', () => {
     expect(router.state.location.pathname).toBe('/')
 
     finishLogout()
-    expect(await screen.findByText('로그아웃했어요')).toBeInTheDocument()
+    expect(await screen.findByText('로그아웃되었습니다')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
   })
 
@@ -255,6 +255,31 @@ describe('AppLayout 시연 모드', () => {
     expect(screen.queryByRole('complementary', { name: '요청 로그 (시연 모드)' })).toBeNull()
   })
 
+  // 발표·심사 때 주소를 고치지 않고 켠다(ISE-303)
+  it('사이트 아래 [시연 모드 켜기]로 요청 로그 패널을 켜고 끈다', async () => {
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: 1440 })
+    const user = userEvent.setup()
+    renderRoutes(routes, '/')
+
+    // 패널에도 [시연 모드 끄기]가 있어 사이트 아래 영역 안에서 찾는다
+    const footer = await screen.findByRole('contentinfo')
+    const turnOn = within(footer).getByRole('button', { name: '시연 모드 켜기' })
+    expect(turnOn).toHaveAttribute('aria-pressed', 'false')
+    await user.click(turnOn)
+
+    expect(
+      await screen.findByRole('complementary', { name: '요청 로그 (시연 모드)' }),
+    ).toBeInTheDocument()
+    const turnOff = within(footer).getByRole('button', { name: '시연 모드 끄기' })
+    expect(turnOff).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(turnOff)
+    await waitFor(() =>
+      expect(screen.queryByRole('complementary', { name: '요청 로그 (시연 모드)' })).toBeNull(),
+    )
+    expect(within(footer).getByRole('button', { name: '시연 모드 켜기' })).toBeInTheDocument()
+  })
+
   it('시연 모드가 켜져 있으면 요청 로그 패널이 나타난다', async () => {
     Object.defineProperty(root, 'clientWidth', { configurable: true, value: 1440 })
     enableDemoMode()
@@ -297,7 +322,7 @@ describe('RouteErrorPage', () => {
   it('화면이 던진 ApiError를 문구와 문의 번호로 보이고 헤더는 남긴다', () => {
     renderRoutes(routesWithThrowingPage(), '/boom')
 
-    expect(screen.getByText(/문의할 때 아래 번호를 알려 주세요/)).toBeInTheDocument()
+    expect(screen.getByText(/문의 시 아래 번호를 알려주세요/)).toBeInTheDocument()
     expect(screen.getByText('trace-abc-123')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '처음으로' })).toBeInTheDocument()

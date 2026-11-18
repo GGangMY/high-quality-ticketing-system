@@ -268,7 +268,7 @@ class PaymentApprovalApiTest {
     @Test
     void 위조되거나_다른_사용자의_토큰은_403이다() throws Exception {
         var reservation = newReservation();
-        var forged = token(USER, reservation, AMOUNT).secret("ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100").build();
+        var forged = token(USER, reservation, AMOUNT).privateKey(com.iseonjwa.payment.support.PaymentTokenFixtures.OTHER_PRIVATE_KEY).build();
 
         assertEquals(403, approve(USER, key(), forged, AMOUNT).status());
         assertEquals(403, approve(USER, key(), token(USER + 1, reservation, AMOUNT).build(), AMOUNT).status(),
@@ -554,6 +554,8 @@ class PaymentApprovalApiTest {
         assertFalse(data.has("orderId"));
         assertFalse(data.has("clientKey"));
         assertFalse(data.get("mockBypass").asBoolean(), "Mock 모드는 결제 버튼이 이미 바로 승인한다");
+        assertFalse(data.has("fallbackProvider"), "Mock 모드에는 넘길 PG가 없다");
+        assertTrue(data.get("primaryAvailable").asBoolean());
         assertEquals(AMOUNT, data.get("amount").asLong());
         assertTrue(data.get("orderName").asString().contains(Long.toString(reservation)));
         assertEquals(0, paymentCount(reservation), "checkout은 아무것도 저장하지 않는다");

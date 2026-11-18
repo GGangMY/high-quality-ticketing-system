@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { newIdempotencyKey } from '@/api/idempotencyKey'
 import { holdSeats } from '@/api/reservations'
 import { readPaymentAttempt, readTossCheckout, savePaymentAttempt } from '@/auth/paymentAttempts'
@@ -34,6 +34,10 @@ const openWindow = vi.mocked(openTossPaymentWindow)
 vi.mock('@/lib/reloadPage', () => ({ reloadPage: vi.fn() }))
 const reload = vi.mocked(reloadPage)
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 beforeEach(async () => {
   openWindow.mockReset()
   reload.mockReset()
@@ -65,19 +69,22 @@ describe('usePaymentFlow', () => {
   })
 
   it('같은 토큰으로 실패 뒤 다시 누르면 같은 멱등키를 쓴다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     setMockScenario({ payment: 'pg-unavailable' })
     const held = await hold()
     const requests = recordRequests(PAYMENTS_PATH)
     const { result } = renderHook(() => usePaymentFlow(held))
 
+    // 누름 한 번에 503 자동 재시도가 한 번 있어 요청이 둘이다(ISE-242)
     act(() => result.current.submit())
+    await act(() => vi.advanceTimersByTimeAsync(2000))
     await waitFor(() => expect(result.current.state.step).toBe('pgUnavailable'))
+    expect(requests).toHaveLength(2)
     act(() => result.current.submit())
-    await waitFor(() => expect(requests).toHaveLength(2))
+    await act(() => vi.advanceTimersByTimeAsync(2000))
+    await waitFor(() => expect(requests).toHaveLength(4))
 
-    expect(requests[1].headers.get('Idempotency-Key')).toBe(
-      requests[0].headers.get('Idempotency-Key'),
-    )
+    expect(new Set(requests.map((request) => request.headers.get('Idempotency-Key'))).size).toBe(1)
   })
 
   it('결제를 시작한 뒤 화면이 받은 토큰이 바뀌어도 처음 토큰·키로 보낸다', async () => {
@@ -143,12 +150,14 @@ describe('usePaymentFlow', () => {
   })
 
   it('결제를 시작하면 토큰과 멱등키를 저장한다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     setMockScenario({ payment: 'pg-unavailable' })
     const held = await hold()
     const requests = recordRequests(PAYMENTS_PATH)
     const { result } = renderHook(() => usePaymentFlow(held))
 
     act(() => result.current.submit())
+    await act(() => vi.advanceTimersByTimeAsync(2000))
     await waitFor(() => expect(result.current.state.step).toBe('pgUnavailable'))
 
     expect(readPaymentAttempt(held.reservationId)).toEqual({
@@ -478,18 +487,265 @@ describe('usePaymentFlow', () => {
         key: 'stored-key',
         clientPaymentRef: 'tgen_stored',
       })
+      vi.useFakeTimers({ shouldAdvanceTime: true })
       mockServer.use(http.post(PAYMENTS_PATH, () => fail(503, 'PG_UNAVAILABLE', 'PG 장애')))
       const payments = recordRequests(PAYMENTS_PATH)
       const { result } = renderHook(() => usePaymentFlow(held))
+      // 화면을 열 때 이어 보낸 실행은 503 자동 재시도 한 번까지 요청이 둘이다(ISE-242)
+      await act(() => vi.advanceTimersByTimeAsync(2000))
       await waitFor(() => expect(result.current.state.step).toBe('pgUnavailable'))
+      expect(payments).toHaveLength(2)
 
       act(() => result.current.submitMockBypass())
+      await act(() => vi.advanceTimersByTimeAsync(2000))
 
-      await waitFor(() => expect(payments).toHaveLength(2))
-      expect(payments[1].headers.get('Idempotency-Key')).toBe('stored-key')
-      const resent = (await payments[1].json()) as Record<string, unknown>
+      await waitFor(() => expect(payments).toHaveLength(4))
+      expect(payments[2].headers.get('Idempotency-Key')).toBe('stored-key')
+      const resent = (await payments[2].json()) as Record<string, unknown>
       expect(resent).toMatchObject({ clientPaymentRef: 'tgen_stored' })
       expect(resent).not.toHaveProperty('pgProvider')
+    })
+  })
+
+  describe('토스 폴백(ISE-305)', () => {
+    function tossCheckout(held: { amount: number }, overrides: Record<string, unknown> = {}) {
+      mockServer.use(
+        http.post(CHECKOUT_PATH, () =>
+          ok({
+            provider: 'TOSS',
+            orderId: 'order-1-abcdef',
+            clientKey: 'test_ck_fake',
+            amount: held.amount,
+            orderName: '콘서트 예매 1',
+            fallbackProvider: 'MOCK',
+            primaryAvailable: true,
+            ...overrides,
+          }),
+        ),
+      )
+    }
+
+    it('경우 1: 토스 승인 차단기가 열려 있으면 결제창을 열지 않고 새 키·MOCK으로 승인한다', async () => {
+      const held = await hold()
+      tossCheckout(held, { primaryAvailable: false })
+      const payments = recordRequests(PAYMENTS_PATH)
+      const { result } = renderHook(() => usePaymentFlow(held))
+
+      act(() => result.current.submit())
+
+      await waitFor(() => expect(result.current.state.step).toBe('confirmed'), { timeout: 5000 })
+      expect(openWindow).not.toHaveBeenCalled()
+      expect(readTossCheckout(held.reservationId)).toBeNull()
+      expect(payments).toHaveLength(1)
+      expect(await payments[0].json()).toEqual({
+        paymentToken: held.paymentToken,
+        amount: held.amount,
+        method: 'CARD',
+        pgProvider: 'MOCK',
+      })
+      expect(result.current.failover).toBe('tossUnavailable')
+    })
+
+    it('차단기가 열려 있어도 폴백이 없으면(null) 결제창을 연다', async () => {
+      const held = await hold()
+      tossCheckout(held, { primaryAvailable: false, fallbackProvider: null })
+      openWindow.mockReturnValue(new Promise(() => {}))
+      const { result } = renderHook(() => usePaymentFlow(held))
+
+      act(() => result.current.submit())
+
+      await waitFor(() => expect(result.current.state.step).toBe('redirecting'))
+      expect(result.current.failover).toBeNull()
+    })
+
+    it('경우 2: 결제창 오류(구매자 취소 아님)면 Mock으로 승인한다', async () => {
+      const held = await hold()
+      tossCheckout(held)
+      openWindow.mockRejectedValue({ code: 'INVALID_CARD_COMPANY' })
+      const payments = recordRequests(PAYMENTS_PATH)
+      const { result } = renderHook(() => usePaymentFlow(held))
+
+      act(() => result.current.submit())
+
+      await waitFor(() => expect(result.current.state.step).toBe('confirmed'), { timeout: 5000 })
+      expect(await payments[0].json()).toMatchObject({ pgProvider: 'MOCK' })
+      expect(result.current.failover).toBe('tossWindowFailed')
+      expect(readTossCheckout(held.reservationId)).toBeNull()
+    })
+
+    it('경우 2: 구매자가 결제창을 취소하면 넘기지 않는다', async () => {
+      const held = await hold()
+      tossCheckout(held)
+      openWindow.mockRejectedValue({ code: 'USER_CANCEL' })
+      const payments = recordRequests(PAYMENTS_PATH)
+      const { result } = renderHook(() => usePaymentFlow(held))
+
+      act(() => result.current.submit())
+
+      await waitFor(() => expect(result.current.state).toEqual({ step: 'tossCanceled' }))
+      expect(payments).toHaveLength(0)
+      expect(result.current.failover).toBeNull()
+    })
+
+    it('경우 2: 폴백이 없으면(null) 지금처럼 tossFailed다', async () => {
+      const held = await hold()
+      tossCheckout(held, { fallbackProvider: null })
+      openWindow.mockRejectedValue({ code: 'INVALID_CARD_COMPANY' })
+      const payments = recordRequests(PAYMENTS_PATH)
+      const { result } = renderHook(() => usePaymentFlow(held))
+
+      act(() => result.current.submit())
+
+      await waitFor(() =>
+        expect(result.current.state).toEqual({ step: 'tossFailed', code: 'INVALID_CARD_COMPANY' }),
+      )
+      expect(payments).toHaveLength(0)
+      expect(result.current.failover).toBeNull()
+    })
+
+    describe('경우 3: 결제창 뒤 승인이 503으로 끝난 경우', () => {
+      function saveTossAttempt(held: { reservationId: number; paymentToken: string }) {
+        savePaymentAttempt(held.reservationId, {
+          token: held.paymentToken,
+          key: 'toss-key',
+          clientPaymentRef: 'tgen_stored',
+        })
+      }
+
+      // 토스 시도는 503이고 Mock 시도는 성공하게 한다
+      function tossApproveUnavailable() {
+        mockServer.use(
+          http.post(PAYMENTS_PATH, async ({ request }) => {
+            const body = (await request.clone().json()) as { pgProvider?: string }
+            return body.pgProvider === 'MOCK'
+              ? ok({
+                  paymentId: 1,
+                  reservationId: 1,
+                  status: 'DECLINED',
+                  reasonCode: 'CARD_DECLINED',
+                })
+              : fail(503, 'PG_UNAVAILABLE', 'PG 장애')
+          }),
+        )
+      }
+
+      it('자동 재시도까지 503이면 checkout을 다시 부르고 새 키·MOCK으로 승인한다', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const held = await hold()
+        saveTossAttempt(held)
+        tossCheckout(held)
+        tossApproveUnavailable()
+        const checkouts = recordRequests(CHECKOUT_PATH)
+        const payments = recordRequests(PAYMENTS_PATH)
+        const { result } = renderHook(() => usePaymentFlow(held))
+
+        await act(() => vi.advanceTimersByTimeAsync(2000))
+
+        await waitFor(() => expect(payments).toHaveLength(3))
+        expect(checkouts).toHaveLength(1)
+        expect(payments[0].headers.get('Idempotency-Key')).toBe('toss-key')
+        const failedOver = payments[2]
+        expect(failedOver.headers.get('Idempotency-Key')).not.toBe('toss-key')
+        expect(await failedOver.json()).toEqual({
+          paymentToken: held.paymentToken,
+          amount: held.amount,
+          method: 'CARD',
+          pgProvider: 'MOCK',
+        })
+        await waitFor(() => expect(result.current.state.step).toBe('declined'))
+        expect(result.current.failover).toBe('tossApproveUnavailable')
+        // 503 단계는 화면에 나가지 않는다
+        expect(result.current.state.step).not.toBe('pgUnavailable')
+      })
+
+      it('Mock 시도가 503이면 다시 넘기지 않고 pgUnavailable로 멈춘다', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const held = await hold()
+        savePaymentAttempt(held.reservationId, {
+          token: held.paymentToken,
+          key: 'mock-key',
+          pgProvider: 'MOCK',
+        })
+        mockServer.use(http.post(PAYMENTS_PATH, () => fail(503, 'PG_UNAVAILABLE', 'PG 장애')))
+        const checkouts = recordRequests(CHECKOUT_PATH)
+        const { result } = renderHook(() => usePaymentFlow(held))
+
+        await act(() => vi.advanceTimersByTimeAsync(2000))
+
+        await waitFor(() => expect(result.current.state.step).toBe('pgUnavailable'))
+        expect(checkouts).toHaveLength(0)
+        expect(result.current.failover).toBeNull()
+      })
+
+      it('결과 모름(504)은 넘기지 않고 같은 키로 다시 묻는다', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const held = await hold()
+        saveTossAttempt(held)
+        mockServer.use(http.post(PAYMENTS_PATH, () => fail(504, 'GATEWAY_TIMEOUT', '시간 초과')))
+        const checkouts = recordRequests(CHECKOUT_PATH)
+        const payments = recordRequests(PAYMENTS_PATH)
+        const { result } = renderHook(() => usePaymentFlow(held))
+
+        await act(() => vi.advanceTimersByTimeAsync(5000))
+
+        expect(checkouts).toHaveLength(0)
+        expect(payments.length).toBeGreaterThan(1)
+        for (const request of payments) {
+          expect(request.headers.get('Idempotency-Key')).toBe('toss-key')
+        }
+        expect(result.current.failover).toBeNull()
+      })
+
+      it('checkout이 403 PAYMENT_TOKEN_INVALID면 tokenExpired로 멈춘다', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const held = await hold()
+        saveTossAttempt(held)
+        mockServer.use(
+          http.post(PAYMENTS_PATH, () => fail(503, 'PG_UNAVAILABLE', 'PG 장애')),
+          http.post(CHECKOUT_PATH, () =>
+            fail(403, 'PAYMENT_TOKEN_INVALID', '토큰이 올바르지 않다'),
+          ),
+        )
+        const { result } = renderHook(() => usePaymentFlow(held))
+
+        await act(() => vi.advanceTimersByTimeAsync(2000))
+
+        await waitFor(() => expect(result.current.state).toEqual({ step: 'tokenExpired' }))
+        expect(result.current.failover).toBeNull()
+      })
+
+      it('폴백이 없거나 checkout이 그 밖의 오류면 pgUnavailable 그대로다', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const held = await hold()
+        saveTossAttempt(held)
+        mockServer.use(
+          http.post(PAYMENTS_PATH, () => fail(503, 'PG_UNAVAILABLE', 'PG 장애')),
+          http.post(CHECKOUT_PATH, () => fail(500, 'INTERNAL_SERVER_ERROR', '실패')),
+        )
+        const { result } = renderHook(() => usePaymentFlow(held))
+
+        await act(() => vi.advanceTimersByTimeAsync(2000))
+
+        await waitFor(() => expect(result.current.state.step).toBe('pgUnavailable'))
+        expect(result.current.failover).toBeNull()
+      })
+
+      it('넘기는 동안 submit을 또 눌러도 요청이 늘지 않는다', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        const held = await hold()
+        saveTossAttempt(held)
+        tossCheckout(held)
+        tossApproveUnavailable()
+        const checkouts = recordRequests(CHECKOUT_PATH)
+        const { result } = renderHook(() => usePaymentFlow(held))
+
+        // 이어 보내기가 진행 중인 동안의 누르기는 무시된다
+        act(() => result.current.submit())
+        await act(() => vi.advanceTimersByTimeAsync(2000))
+
+        await waitFor(() => expect(result.current.state.step).toBe('declined'))
+        expect(checkouts).toHaveLength(1)
+      })
     })
   })
 })

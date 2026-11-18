@@ -1,4 +1,4 @@
-// 좌석 목록, 선점, 결제, 확정 확인. PAY1·R1·X1·O1이 같이 쓴다.
+// 좌석 목록, 선점, 결제, 확정 확인, 취소. PAY1·R1·X1·O1·O1 예외가 같이 쓴다.
 // 좌석 선점 K1(reservation-service/k6/k1-seathold.js)과 같은 요청을 보낸다
 import http from 'k6/http';
 import { fail } from 'k6';
@@ -13,7 +13,7 @@ export function userOf(userId, scheduleId) {
 }
 
 // setup에서 좌석 조회 한 번으로 선택 가능한 좌석 ID를 응답 순서대로 모은다.
-// Note: 15,000석 응답(약 830KB)을 JSON.parse하지 않고 문자열 검색으로 seatId만 꺼낸다(k1-seathold.js와 같은 이유)
+// Note: 좌석 응답(15,000석 당시 약 830KB)을 JSON.parse하지 않고 문자열 검색으로 seatId만 꺼낸다(k1-seathold.js와 같은 이유)
 export function availableSeatIds(scheduleId, user) {
   const res = http.get(url(`/api/v1/schedules/${scheduleId}/seats`),
     { headers: seatHeaders(user), tags: { api: 'setup' }, timeout: '60s' });
@@ -57,6 +57,50 @@ export function pickSeatsFromMap(body, count, hotRatio = 0.7, hotShare = 0.1) {
   return seatIds;
 }
 
+// 등급 구간의 경계. 좌석 조회 응답은 구역을 A~Y 순서로 주고(ScheduleSeatsResponse, 구역 오름차순) 구역 등급은
+// A~E VIP, F~O R, P~Y S다(venue 시드). 그래서 구역 시작 표지를 본문에서 찾아 등급 구간을 문자열 위치로 정한다
+const ZONE_MARKS = { VIP: ['"section":"A"', '"section":"F"'], R: ['"section":"F"', '"section":"P"'], S: ['"section":"P"', null] };
+
+// 좌석 조회 응답에서 등급(VIP·R·S·ANY) 구간 안의 선택 가능한 좌석 count개를 고른다. 구간 안 무작위 위치부터 찾고
+// 구간 끝까지 없으면 구간 처음부터 찾는다. 두 번째 좌석부터는 바로 다음 선택 가능 좌석이다(pickSeatsFromMap과 같다).
+// count개를 못 모으면 빈 배열을 돌려준다. k6 API를 쓰지 않는 순수 함수다
+export function pickSeatsInZone(body, count, zone) {
+  const marks = ZONE_MARKS[zone] || [null, null];
+  const from = marks[0] === null ? 0 : body.indexOf(marks[0]);
+  if (from < 0) {
+    return [];
+  }
+  const nextMark = marks[1] === null ? -1 : body.indexOf(marks[1], from);
+  const to = nextMark < 0 ? body.length : nextMark;
+  let start = body.indexOf(AVAILABLE, from + Math.floor(Math.random() * (to - from)));
+  if (start < 0 || start >= to) {
+    start = body.indexOf(AVAILABLE, from);
+  }
+  if (start < 0 || start >= to) {
+    return [];
+  }
+  const seatIds = [];
+  // 시작 위치부터 구간 끝까지 모으고, 모자라면 구간 처음부터 시작 위치 앞까지 이어서 모은다
+  collectSeats(body, start, to, count, seatIds);
+  if (seatIds.length < count && start > from) {
+    collectSeats(body, from, start, count, seatIds);
+  }
+  return seatIds.length === count ? seatIds : [];
+}
+
+function collectSeats(body, first, limit, count, seatIds) {
+  let position = body.indexOf(AVAILABLE, first);
+  while (position >= 0 && position < limit && seatIds.length < count) {
+    const start = body.lastIndexOf('{', position);
+    const end = body.indexOf('}', position);
+    const match = /"seatId":(\d+)/.exec(body.substring(start, end));
+    if (match && seatIds.indexOf(Number(match[1])) < 0) {
+      seatIds.push(Number(match[1]));
+    }
+    position = body.indexOf(AVAILABLE, position + AVAILABLE.length);
+  }
+}
+
 export function isSoldOut(body) {
   return body.indexOf(AVAILABLE) < 0;
 }
@@ -70,15 +114,26 @@ export function hold(scheduleId, user, seatIds, tags = {}) {
 }
 
 // 결제 승인. 본문 금액은 선점 응답의 totalAmount다(결제 서비스가 토큰의 금액과 비교한다)
+// Note: pgProvider MOCK이 없으면 배포 서버(기본 PG 토스)가 결제창 값을 요구해 400이 난다(o1-open-peak.js pay와 같은 이유).
 export function pay(user, held, tags = {}) {
   const res = http.post(url('/api/v1/payments'),
-    JSON.stringify({ paymentToken: held.paymentToken, method: 'CARD', amount: held.totalAmount }), {
+    JSON.stringify({ paymentToken: held.paymentToken, method: 'CARD', amount: held.totalAmount, pgProvider: 'MOCK' }), {
       headers: jsonHeaders(user.access, { 'Idempotency-Key': uuid() }),
       tags: Object.assign({ api: 'payment' }, tags),
       // Gateway 3초보다 길게 두어 504를 서버 응답으로 받는다
       timeout: '10s',
     });
   return { res, data: dataOf(res) };
+}
+
+// 예매 취소(POST /api/v1/reservations/{id}/cancel, ReservationController). 성공은 202다.
+// Note: 서버는 Idempotency-Key를 형식(UUID)만 보고 저장하지 않는다. 멱등은 예매 상태로 지켜서, 이미 취소한 예매에 다시 보내도
+// 409가 아니라 첫 응답과 같은 202가 온다(ReservationCancelService). 결제 전(HELD) 예매는 409 RESERVATION_NOT_CANCELABLE이다
+export function cancelReservation(user, reservationId, tags = {}) {
+  return http.post(url(`/api/v1/reservations/${reservationId}/cancel`), null, {
+    headers: authHeaders(user.access, { 'Idempotency-Key': uuid() }),
+    tags: Object.assign({ api: 'cancel' }, tags),
+  });
 }
 
 export function reservationStatus(user, reservationId) {

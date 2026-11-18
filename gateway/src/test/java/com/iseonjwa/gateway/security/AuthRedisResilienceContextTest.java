@@ -5,6 +5,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.iseonjwa.gateway.security.AuthRedisFailures.Cause;
 import com.iseonjwa.gateway.security.AuthRedisFailures.RedisLookupTimeout;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.micrometer.tagged.TaggedCircuitBreakerMetrics;
 import io.github.resilience4j.springboot3.bulkhead.autoconfigure.BulkheadAutoConfiguration;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.support.SpringApplicationJsonEnvironmentPostProcessor;
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -23,11 +25,20 @@ import org.springframework.cloud.circuitbreaker.resilience4j.ReactiveResilience4
 import org.springframework.cloud.circuitbreaker.resilience4j.ReactiveResilience4jBulkheadProvider;
 import org.springframework.cloud.client.circuitbreaker.ReactiveCircuitBreaker;
 import org.springframework.cloud.client.circuitbreaker.ReactiveCircuitBreakerFactory;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
+import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.PropertySource;
+import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.io.FileSystemResource;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,6 +109,52 @@ class AuthRedisResilienceContextTest {
     }
 
     @Test
+    void 운영_설정_그대로면_bulkhead_거절은_ignored로_세어지고_시간_창이_들어간다() {
+        // config-repo/gateway.yml을 그대로 얹는다. bulkhead 동시 한도만 이 클래스의 1이 이겨서 거절 한 번을 만든다.
+        withConfigRepo().run(context -> {
+            var config = context.getBean(CircuitBreakerRegistry.class).circuitBreaker(BREAKER).getCircuitBreakerConfig();
+            assertThat(config.getSlidingWindowType()).isEqualTo(CircuitBreakerConfig.SlidingWindowType.TIME_BASED);
+            assertThat(config.getMinimumNumberOfCalls()).isEqualTo(500);
+
+            var calls = rejectOneByBulkhead(context);
+
+            assertThat(calls.failed()).isZero();
+            assertThat(calls.ignored()).isEqualTo(1);
+        });
+    }
+
+    @Test
+    void 운영_설정_그대로면_차단기_열림_거절의_Retry_After는_열림_시간_5초다() {
+        // 자동 설정이 만든 등록소의 auth-redis 설정에서 읽는지 본다. 열림 시간을 바꾸면 Retry-After도 따라온다.
+        // Note: 실제 기동처럼 "3s" 기본값을 Duration으로 바꾸려면 ApplicationConversionService가 필요하다(GatewayAuthenticationFilterTimeoutTest 참고).
+        withConfigRepo().withInitializer(context -> context.getBeanFactory()
+                        .setConversionService(ApplicationConversionService.getSharedInstance()))
+                .withUserConfiguration(AuthRedisRetryAfter.class).run(context -> {
+            breaker(context);
+            var retryAfter = context.getBean(AuthRedisRetryAfter.class);
+
+            assertThat(retryAfter.of(Cause.BREAKER_OPEN)).isEqualTo(Duration.ofSeconds(5));
+            assertThat(retryAfter.of(Cause.LOOKUP_TIMEOUT)).isEqualTo(Duration.ofSeconds(3));
+        });
+    }
+
+    @Test
+    void 운영_시한은_Lettuce가_필터보다_길고_필터가_느린_호출_기준보다_길다() throws IOException {
+        // Note: 순서가 뒤집히면 시한 초과가 lookup_timeout이 아닌 다른 원인으로 남거나, 느린 호출과 실패로 함께 세어진다(ADR 0050).
+        var environment = new StandardEnvironment();
+        configRepoSources().forEach(source -> environment.getPropertySources().addLast(source));
+        // "200ms" 같은 값은 앱과 같은 Binder 변환으로 읽는다
+        var binder = new Binder(ConfigurationPropertySources.get(environment));
+        var lettuce = binder.bind("spring.data.redis.timeout", Duration.class).get();
+        var filter = binder.bind("auth.redis-timeout", Duration.class).get();
+        var slowCall = binder.bind(
+                "resilience4j.circuitbreaker.instances.auth-redis.slow-call-duration-threshold", Duration.class).get();
+
+        assertThat(lettuce).isGreaterThan(filter);
+        assertThat(filter).isGreaterThan(slowCall);
+    }
+
+    @Test
     void 안쪽_시한은_차단기에_한_번만_기록되고_바깥_TimeoutException은_두_번_기록된다() {
         runner.run(context -> {
             var registry = context.getBean(CircuitBreakerRegistry.class);
@@ -154,6 +211,20 @@ class AuthRedisResilienceContextTest {
             environment.getPropertySources().addFirst(new MapPropertySource("test-json", Map.of("spring.application.json", json)));
             new SpringApplicationJsonEnvironmentPostProcessor().postProcessEnvironment(environment, new SpringApplication());
         });
+    }
+
+    private ApplicationContextRunner withConfigRepo() {
+        return runner.withInitializer(context -> {
+            try {
+                configRepoSources().forEach(source -> context.getEnvironment().getPropertySources().addLast(source));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+    }
+
+    private static List<PropertySource<?>> configRepoSources() throws IOException {
+        return new YamlPropertySourceLoader().load("config-repo-gateway", new FileSystemResource("../config-repo/gateway.yml"));
     }
 
     private static String ignoreExceptionsJson(String exceptions) {

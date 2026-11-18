@@ -1,10 +1,12 @@
 package com.iseonjwa.reservation.concert.infrastructure.persistence;
 
+import com.iseonjwa.reservation.concert.domain.entity.ScheduleSeatStatus;
 import com.iseonjwa.reservation.concert.domain.entity.SeatGrade;
 import com.iseonjwa.reservation.concert.domain.repository.ScheduleSeatRepository;
-import com.iseonjwa.reservation.concert.domain.repository.ScheduleSeatRow;
+import com.iseonjwa.reservation.concert.domain.repository.SeatLayoutRow;
 import com.iseonjwa.reservation.global.vo.Money;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -17,6 +19,7 @@ import java.util.Map;
 public class JpaScheduleSeatRepository implements ScheduleSeatRepository {
 
     private final SpringDataScheduleSeatRepository springDataScheduleSeatRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public boolean existsByScheduleId(Long scheduleId) {
@@ -24,14 +27,27 @@ public class JpaScheduleSeatRepository implements ScheduleSeatRepository {
     }
 
     @Override
-    public List<ScheduleSeatRow> findSeatRows(Long scheduleId) {
-        return springDataScheduleSeatRepository.findSeatRows(scheduleId);
+    public List<SeatLayoutRow> findSeatLayouts(Long scheduleId) {
+        return springDataScheduleSeatRepository.findSeatLayouts(scheduleId);
+    }
+
+    @Override
+    public List<Long> findHoldableSeatIds(Long scheduleId) {
+        return springDataScheduleSeatRepository.findSeatIdsByStatusExcludingGrade(
+                scheduleId, ScheduleSeatStatus.AVAILABLE, SeatGrade.LOTTERY);
     }
 
     @Override
     public int createFromVenueSeats(Long scheduleId, Long venueId, Map<SeatGrade, Money> prices, Long actorId) {
         return springDataScheduleSeatRepository.insertFromVenueSeats(scheduleId, venueId,
                 priceOf(prices, SeatGrade.VIP), priceOf(prices, SeatGrade.R), priceOf(prices, SeatGrade.S), actorId);
+    }
+
+    // Note: 트랜잭션 밖에서 부르므로 JdbcTemplate이 자동 커밋 커넥션으로 실행한다. ANALYZE는 표 전체가 아니라
+    // 표본(기본 30,000행)만 읽고, 읽기·쓰기를 막는 잠금을 잡지 않는다
+    @Override
+    public void refreshStatistics() {
+        jdbcTemplate.execute("ANALYZE schedule_seats");
     }
 
     @Override

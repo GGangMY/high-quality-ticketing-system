@@ -6,6 +6,8 @@ dependencies {
     implementation project(':common')
     implementation 'org.springframework.security:spring-security-oauth2-jose'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // API 문서(/v3/api-docs)만 낸다. 화면(Swagger UI)은 Gateway가 한 곳에서 띄운다(ADR 0063)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
@@ -14,6 +16,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-redis-test'
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker'
+    implementation 'io.github.resilience4j:resilience4j-micrometer'
+    // 스케줄러 Redis 스팬 제외를 실제 Brave 추적 처리기로 시험한다. 운영에서는 starter-zipkin이 실행 시점에만 넣는다
+    testImplementation 'io.micrometer:micrometer-tracing-bridge-brave'
 }
 
 tasks.named('test') {

@@ -15,6 +15,7 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 | 헤더 | `Authorization` | `Bearer {accessToken}` | 예 | Gateway가 검증 후 `X-User-Id`, `X-User-Role` 헤더로 전달 |
 | 경로 | `scheduleId` | 정수 (`Long`, 양수) | 예 | 예매할 회차 ID. 0 이하·숫자가 아니면 `400 VALIDATION_FAILED` |
 | 헤더 | `X-Entry-Token` | JWS compact (JWT) | 예 | 입장 토큰(계약 ①, [`docs/design/queue/contracts.md`](../queue/contracts.md)). Gateway가 서명·`typ=entry`·`aud=gateway`·`exp`·`sub == X-User-Id`·토큰 `scheduleId` == 경로 `scheduleId`를 검증한다. 선점 서비스는 다시 검증하지 않는다 |
+| 헤더 | `X-Entry-Token-Id` | 문자열 (입장 토큰 `jti`, 지금 발급기는 소문자 hex 32자) | Gateway가 붙임 | Gateway가 입장 토큰 검증을 통과한 요청에만 그 토큰의 `jti`를 넣는다. 클라이언트가 보낸 같은 이름의 헤더는 모든 경로에서 지운다(`X-User-Id`와 같은 방식). 선점 서비스가 입장 토큰 소모 여부를 확인하는 데 쓴다([ADR 0053](../../decisions/0053-entry-token-consume-on-hold.md), ISE-207). 2026-11-12 Gateway 구현, 2026-11-13 선점 서비스 구현. 선점 서비스는 이 헤더가 없으면 소모를 확인하지 않는다(추첨 선점·서비스 직접 호출). 소모 규칙은 아래 1-1절 |
 | 헤더 | `Idempotency-Key` | UUID 문자열 | 예 | 선점 접수 ID(`requestId`)로 그대로 사용. 누락·UUID 형식 오류 시 `400 VALIDATION_FAILED` |
 | 본문 | `seatIds` | JSON 정수 배열 (`List<Long>`) | 예 | 회차 좌석(`schedule_seats.id`) 목록. 1개 이상 `maxPerUser`(기본 4)개 이하, 중복 불가 |
 
@@ -29,6 +30,37 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 
 - 서버는 내부 처리와 응답 생성 전에 `seatIds`를 오름차순으로 정렬한다(DB 행 잠금 교착 방지 및 멱등 본문 비교 기준 통일).
 - `seatIds` 개수가 0개이거나 회차의 `max_per_user`(기본 4매)를 넘거나 배열 안에 중복된 좌석 ID가 있으면 DB 잠금을 잡기 전에 `400 SEAT_COUNT_MISMATCH`로 거절한다.
+
+### 1-1. 입장 토큰 소모 (ISE-207, ADR 0053)
+
+- 입장 토큰은 좌석 선점이 성공한 순간 소모한다. 선점 요청 행(`seat_hold_requests.entry_token_jti`)에 `X-Entry-Token-Id`를 저장하고, 거절되지 않은(`REQUESTED`·`HELD`) 행끼리 같은 `jti`를 가질 수 없게 부분 유니크 인덱스를 둔다.
+- 검사 순서: 같은 멱등키 재요청 판정 → 토큰 사용 여부 → 회차·판매 기간·좌석 검사 → 좌석 잠금. 그래서 같은 멱등키 재요청은 소모 뒤에도 첫 결과(201)를 받는다.
+- 사전 거절(동기형, ISE-281): 위 순서 앞에서 좌석 조회의 1초 캐시가 "요청 좌석 중 선점 불가(이미 잡힘·추첨석·회차에 없는 좌석)가 있다"고 하면, 같은 멱등키 요청 행만 찾아 있으면 재응답하고 없으면 쓰기 트랜잭션 없이 `409 SEAT_ALREADY_HELD`다. 캐시가 없거나 1초보다 낡았으면 위 순서 그대로다. 그래서 캐시가 잡힘이라 할 때는 토큰 재사용(403)·매수 초과(400)·회차에 없는 좌석(400)보다 409가 먼저 나갈 수 있고, 1초 안에 풀린 좌석에 409가 날 수 있다. 끄려면 `seat-hold.pre-reject.enabled=false`다.
+- 다른 멱등키로 같은 토큰을 다시 쓰면 `403 ENTRY_TOKEN_USED`다. 같은 토큰으로 동시에 두 번 보내면 유니크 인덱스가 하나만 통과시킨다.
+- 실패한 선점(`409 SEAT_ALREADY_HELD` 등)은 롤백돼 행이 남지 않으므로 토큰을 소모하지 않는다.
+- 접수형은 접수할 때 `jti`를 `REQUESTED` 행에 저장한다. 앞선 요청이 처리 중이어도 같은 토큰의 다른 요청은 `403 ENTRY_TOKEN_USED`다. 소비자가 거절해 `REJECTED`가 되면 토큰을 다시 쓸 수 있다. `SeatHoldRequested` 페이로드에 `entryTokenJti`(없으면 `null`)를 싣는다.
+- 대기열 정리: 선점이 성공하면(동기형은 응답 전, 접수형은 소비자가 `HELD`를 커밋한 뒤) 선점 트랜잭션이 끝나 커넥션을 돌려준 다음 `QueueService.discardEntryToken(scheduleId, userId, jti)`를 부른다. 대기열 `issued`의 기록이 같은 `jti`일 때만 지우므로, 옛 토큰의 늦은 요청이 새로 받은 입장을 지우지 않는다. `ENTRY_TOKEN_USED`로 거절할 때도 한 번 더 부른다(앞선 정리가 실패한 경우). 정리에 실패해도 응답은 바뀌지 않고 경고 로그만 남는다.
+- 거절 상태 코드 403은 ADR 0053(채택)을 따른다. 프론트 반영이 남아 있다(ISE-207 11-14 댓글).
+
+### 1-2. 자동 배정 선점 (`POST /api/v1/schedules/{scheduleId}/reservations/auto`, ISE-264, [ADR 0059](../../decisions/0059-seat-auto-assign-skip-locked.md))
+
+좌석 대신 고를 범위와 매수를 받고 서버가 좌석을 골라 선점한다. 헤더(`Authorization`·`X-Entry-Token`·`X-Entry-Token-Id`·`Idempotency-Key`)와 경로 규칙, 입장 토큰 소모(1-1절), 성공 응답(2-1절 `201` 본문 10개 필드)은 위 선점 API와 같다. Gateway는 이 경로에도 입장 토큰을 요구한다(`EntryTokenPolicy`).
+
+| 구분 | 이름 | 타입 / 형식 | 필수 | 검증 규칙 |
+|---|---|---|---|---|
+| 본문 | `grade` | 문자열 `VIP`·`R`·`S` | 아니오 | 이 등급 안에서 고른다. `LOTTERY`·없는 등급은 `400 VALIDATION_FAILED` |
+| 본문 | `section` | 문자열 1~10자 (예: `A`) | 아니오 | 이 구역 안에서 고른다. `grade`와 함께 주면 `400 VALIDATION_FAILED`. 둘 다 없으면 회차 전체 |
+| 본문 | `quantity` | 정수 | 예 | 1 이상(아니면 `400 VALIDATION_FAILED`), 회차 `max_per_user` 이하(넘으면 `400 SEAT_COUNT_MISMATCH`) |
+
+```json
+// POST /api/v1/schedules/31/reservations/auto
+{ "section": "A", "quantity": 2 }
+```
+
+- 고르는 규칙: 범위 안의 선점 가능한 좌석(`AVAILABLE`, 추첨석 제외)을 좌석 ID 오름차순으로 `quantity`개 잠근다(`FOR UPDATE SKIP LOCKED`). 다른 요청이 잠근 좌석은 기다리지 않고 건너뛴다. 좌석 ID가 구역·열·번호 순이라 2매는 대개 같은 열의 붙은 자리지만 **연석은 보장하지 않는다**.
+- 처리 순서: 같은 멱등키 재요청 판정 → 토큰 사용 여부 → 회차·매수 상한·판매 기간 → 멱등키 행 저장(좌석은 빈 배열) → 매수 행 조건부 UPDATE → 좌석 잠금·HELD → 예매 저장 → 멱등키 행에 고른 좌석 기록. 한 트랜잭션이라 커밋된 `seat_hold_requests` 행에는 늘 좌석이 있다.
+- 범위 안에 남은 좌석이 `quantity`보다 적으면 `409 ZONE_SOLD_OUT`이다. 다른 구역·등급으로 넘기지 않는다(클라이언트가 고른다). 실패는 롤백돼 행이 남지 않고 입장 토큰도 소모하지 않는다.
+- 좌석 조회 1초 캐시 사전 거절(1-1절)은 하지 않는다. `seat-hold.mode=async`여도 이 API는 동기형으로 답한다.
 
 ---
 
@@ -75,9 +107,19 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 
 ### 2-2. 접수형 선점 응답 (`202 Accepted` 및 결과 조회, M4 고도화 모드)
 
-서버 설정 `seat-hold.mode=async`일 때 동작한다. 클라이언트는 응답의 `data.status`가 `HELD`(동기형 즉시 완료)인지 `REQUESTED`(접수형 폴링 대기)인지만 분기하면 된다.
+서버 설정 `seat-hold.mode=async`일 때 동작한다. 모드는 reservation-service가 기동할 때 한 번 읽고, 바꾸려면 재시작한다(`sync` 기본, [ADR 0057](../../decisions/0057-async-seat-hold-intake-and-mode.md)). 클라이언트는 응답의 `data.status`가 `HELD`(동기형 즉시 완료)인지 `REQUESTED`(접수형 폴링 대기)인지만 분기하면 된다.
 
+> 2026-11-12 변경(ISE-16, ADR 0056·0057):
+> - 접수형 POST도 접수 단계에서 동기형과 같은 입력 검증을 한다. 요청 좌석이 이미 잡혀 있으면 행을 남기지 않고 즉시 `409 SEAT_ALREADY_HELD`를 준다. 잠금 없는 읽기이고 최종 판단은 소비자가 한다. 이 항목은 ISE-120 담당 확인 뒤 확정한다.
+> - 결과 조회 API는 모드와 상관없이 열려 있다.
+> - 메시지 키는 `{scheduleId}:{section}`이고, 좌석이 여러 구역에 걸치면 사전순으로 가장 작은 구역을 쓴다.
+
+- **접수 단계 검사 (`202` 전에 끝나는 것)**
+  - 동기형과 같은 `400`·`404`·`409 SALE_NOT_OPEN` 검사(1절, 4절)
+  - 요청 좌석 중 하나라도 `AVAILABLE`이 아니거나 추첨석이면 `409 SEAT_ALREADY_HELD`. `seat_hold_requests` 행을 남기지 않으므로 같은 키로 다시 보내면 새로 판단한다
+  - 매수 한도(`PURCHASE_LIMIT_EXCEEDED`)는 접수에서 보지 않는다. 앞선 접수 요청의 매수를 반영해야 해서 소비자가 판단하고 조회 결과의 `REJECTED`로 알린다
 - **접수 응답 (`POST /api/v1/schedules/{scheduleId}/reservations` → `202 Accepted`)**
+  - 같은 `Idempotency-Key` 재요청도 기존 행의 상태와 상관없이 같은 `202`와 같은 본문을 준다. `data.status: "REQUESTED"`는 "결과는 `Location`에서 확인하라"는 뜻이다. 실제 결과(`HELD`·`REJECTED`)는 조회 API로만 알린다
   - 헤더: `Location: /api/v1/reservations/requests/{requestId}`
   - `data`:
     ```json
@@ -88,6 +130,8 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
     }
     ```
 - **접수 결과 조회 (`GET /api/v1/reservations/requests/{requestId}` → `200 OK`)**
+  - 모드와 상관없이 동작한다. 동기형은 성공한 선점만 행을 남기므로 `HELD`나 `404`만 나온다.
+  - 입장 토큰(`X-Entry-Token`)은 필요 없고 로그인만 필요하다. `requestId`가 UUID 형식이 아니면 `400 VALIDATION_FAILED`다.
   - 요청자(`X-User-Id`)가 `seat_hold_requests.user_id`와 다르면 타인 존재 여부를 숨기기 위해 `404 NOT_FOUND`를 반환한다.
   - **처리 중 (`status: "REQUESTED"`)**:
     ```json
@@ -97,7 +141,7 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
       "nextPollAfterSeconds": 1
     }
     ```
-  - **선점 성공 (`status: "HELD"`)**: `reservation` 블록에 동기형 201 응답과 같은 예매·좌석·결제 토큰 정보를 담아 반환한다.
+  - **선점 성공 (`status: "HELD"`)**: `reservation` 블록에 동기형 201 응답과 같은 예매·좌석·결제 토큰 정보를 담아 반환한다. `reservation.status`는 예매의 현재 상태다. 결제 토큰은 예매가 `HELD`이고 `now < holdExpiresAt - 10초`일 때만 새로 서명해 넣고, 그 밖(`CONFIRMED`, 만료·해제·취소, 결제 가능 시각 지남)에는 `paymentToken`과 `paymentTokenExpiresAt`이 `null`이다.
     ```json
     {
       "requestId": "c0a80101-0000-4000-8000-000000000501",
@@ -124,6 +168,13 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
     }
     ```
     (`reasonCode` 값: `SEAT_ALREADY_HELD`, `PURCHASE_LIMIT_EXCEEDED`, `PROCESSING_FAILED`, `TIMEOUT`)
+- **소비자가 결과를 정하는 규칙 (ISE-17)**
+  - 소비자는 `seat-hold.mode`와 상관없이 늘 켜져 있다. 선점은 동기형과 같은 순서(매수 → 좌석 ID 오름차순 잠금 → 예매 저장)다. 선점 만료 시각(`holdExpiresAt`)은 접수 시각이 아니라 소비자가 처리한 시각부터 센다.
+  - **30초 시한은 "처리를 시작하는 마감"이다.** 소비자는 처리를 시작할 때 요청 행을 잠그고 접수 뒤 30초가 지났는지 본다. 지났으면 좌석을 건드리지 않고 `TIMEOUT`으로 닫는다. 30초 안에 시작한 처리는 끝까지 하므로 `HELD`가 30초를 수 ms 넘겨 정해질 수 있다. 처리를 시작하지 못한 요청은 5초마다 도는 시한 정리가 `TIMEOUT`으로 닫으므로, 클라이언트는 접수 뒤 최대 약 35초 안에 결과를 받는다.
+  - 처리 시작 때 읽은 좌석 상태에 이미 잡힌 좌석이 섞여 있으면 매수·좌석을 건드리지 않고 `SEAT_ALREADY_HELD`로 닫는다(ADR 0062).
+  - 좌석이나 매수 행 잠금을 50ms 안에 얻지 못하면 `SEAT_ALREADY_HELD`로 닫는다. 동기형과 같은 값이다(ADR 0061). 기다리는 동안 같은 스레드가 맡은 파티션의 뒤 요청이 모두 멈추므로 동기형보다 길게 두지 않는다.
+  - `PROCESSING_FAILED`는 재시도 3회(1·2·4초)로도 처리하지 못해 DLQ로 간 요청이거나, 그사이 회차·좌석이 사라진 요청이다.
+  - `REJECTED`로 닫힌 요청의 입장 토큰은 다시 선점에 쓸 수 있다(1-1절). `HELD`로 닫히면 소비자가 대기열 `issued`의 그 토큰 기록을 지운다.
 
 ---
 
@@ -137,6 +188,8 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 2. `seat_hold_requests.schedule_id == 경로 scheduleId`
 3. `seat_hold_requests.seat_ids == sort(request.seatIds)` (오름차순 정렬된 좌석 ID 배열 일치)
 
+자동 배정(1-2절)은 3번 대신 `seat_hold_requests.auto_criteria`(범위·매수, 예: `section=A;quantity=2`)가 같아야 한다. 같으면 처음 고른 좌석·예매로 ②~④처럼 답한다. 자동 배정으로 쓴 키를 좌석 직접 선택 API로 다시 쓰면(같은 좌석이어도) 반대 경우와 마찬가지로 `409 IDEMPOTENCY_KEY_REUSED`다.
+
 ### 3-2. 상황별 재요청 응답 (동기형·접수형)
 
 | 상황 | 동기형 (`seat-hold.mode=sync`) | 접수형 (`seat-hold.mode=async`) |
@@ -145,8 +198,9 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 | **② 첫 요청이 `HELD`로 성공했고 예매가 아직 `HELD`(`now < holdExpiresAt - 10초`)** | 좌석 잠금 재시도 없이 기존 예매와 새로 서명(또는 기존 만료 시각 기준)한 결제 토큰으로 **`201 Created`** 반환 | `POST` 재요청은 **`202 Accepted` + `Location`**, `GET /requests/{id}`는 `200 OK (status: HELD)` |
 | **③ 첫 요청이 `HELD`로 성공했고 그사이 결제까지 완료(`CONFIRMED`)됨** | **`201 Created`** (`status: "CONFIRMED"`, `paymentToken: null`, `paymentTokenExpiresAt: null`) | `POST`는 `202 Accepted`, `GET /requests/{id}`는 `200 OK` |
 | **④ 첫 요청이 `HELD`로 성공했으나 재요청 시점에 이미 만료·해제·취소(`EXPIRED`·`RELEASED`·`CANCELED`)됨, 또는 `now >= holdExpiresAt - 10초`** | 더 이상 그 선점으로 결제할 수 없으므로 **`409 RESERVATION_NOT_PAYABLE`** (새 좌석 선택·새 멱등키 유도) | `POST`는 `202 Accepted`, `GET /requests/{id}`는 예매의 현재 상태 반영 |
-| **⑤ 첫 요청이 `409`(`SEAT_ALREADY_HELD`·`PURCHASE_LIMIT_EXCEEDED`)로 실패한 뒤 같은 키로 재요청** | 첫 요청 실패 시 트랜잭션이 전체 롤백되어 `seat_hold_requests` 행이 없으므로 새로 선점을 시도한다(여전히 팔린 좌석이면 동일하게 `409`) | 소비자가 `seat_hold_requests(REJECTED)`를 커밋했으므로 `POST`는 `202 Accepted`, `GET /requests/{id}`는 `200 OK (status: REJECTED, reasonCode)` |
+| **⑤ 첫 요청이 `409`(`SEAT_ALREADY_HELD`·`PURCHASE_LIMIT_EXCEEDED`)로 실패한 뒤 같은 키로 재요청** | 첫 요청 실패 시 트랜잭션이 전체 롤백되어 `seat_hold_requests` 행이 없으므로 새로 선점을 시도한다(여전히 팔린 좌석이면 동일하게 `409`) | 접수 단계에서 즉시 `409`로 거절됐으면 행이 없으므로 새로 판단한다(동기형과 같음). 소비자가 `seat_hold_requests(REJECTED)`를 커밋했으면 `POST`는 `202 Accepted`, `GET /requests/{id}`는 `200 OK (status: REJECTED, reasonCode)` |
 | **⑥ 첫 요청이 아직 처리 중인데 연타(따닥)로 동시에 두 번째 요청 도착** | 한쪽이 PK/Unique 제약 위반을 만나면 `500` 대신 롤백 후 커밋된 첫 요청 결과를 재조회해 ①~④ 규칙으로 응답. M2 기준선(ISE-12)은 사전 조회만 해서 두 번째 요청이 좌석 행 잠금을 기다린 뒤 `409 SEAT_ALREADY_HELD`를 받을 것으로 본다(구조상 추정, 미재현). M4 TS-3에서 재현 후 고친다([ADR 0035](../../decisions/0035-defer-seathold-concurrency-and-reconciliation-to-m4.md)) | `seat_hold_requests`가 `REQUESTED` 상태이므로 **`202 Accepted` + `Location`** 반환 |
+| **⑦ 첫 요청을 접수형 서버가 받았고(`REQUESTED`·`REJECTED`), 그 뒤 서버가 동기형으로 재시작됨** | 실패로 답하지 않고 **`202 Accepted` + `Location`**(접수형 202와 같은 본문). 결과는 `GET /requests/{id}`로 본다. 요청은 시작한 방식으로 끝까지 답한다([ADR 0058](../../decisions/0058-sync-replay-of-async-requests.md)). 행이 `HELD`가 됐으면 ②~④를 따른다 | ①~⑤와 같다 |
 
 ---
 
@@ -160,13 +214,15 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 | `400` | `SEAT_COUNT_MISMATCH` | `seatIds`가 비어 있거나 회차의 `max_per_user`(기본 4매)를 초과하거나, 배열 안에 중복된 `seatId`가 있거나, 요청한 `seatId`가 해당 `scheduleId`에 속하지 않는 경우 |
 | `401` | `UNAUTHORIZED` / `TOKEN_EXPIRED` / `TOKEN_REVOKED` | Access JWT 누락·만료·로그아웃 (Gateway 또는 `GatewayIdentityFilter`) |
 | `403` | `ENTRY_TOKEN_INVALID` | `X-Entry-Token` 누락·서명 위조·만료·`typ`/`aud` 불일치·`sub != X-User-Id`·토큰 `scheduleId` != 경로 `scheduleId` (E5, E14). Gateway가 응답한다 |
+| `403` | `ENTRY_TOKEN_USED` | 이 입장 토큰으로 이미 선점했거나(`HELD`) 접수형으로 처리 중(`REQUESTED`)이다. 선점 서비스가 응답한다. 프론트는 `ENTRY_TOKEN_INVALID`처럼 토큰을 지우고 대기열로 보낸다(1-1절, ADR 0053) |
 | `404` | `NOT_FOUND` | 존재하지 않는 `scheduleId`로 선점 요청, 또는 접수 결과 조회 시 존재하지 않거나 타인의 `requestId` 조회 |
 | `409` | `SALE_NOT_OPEN` | 서버 시각(`now`)이 회차의 `open_at` 이전이거나 이미 판매 종료된 회차 (E4) |
 | `409` | `PURCHASE_LIMIT_EXCEEDED` | `user_schedule_quotas` 조건부 UPDATE 결과 0행 (`held_count + 요청 매수 > max_per_user`) (E3, D1) |
-| `409` | `SEAT_ALREADY_HELD` | `schedule_seats` 조건부 UPDATE 결과 갱신 행 수 < 요청 좌석 수, DB `lock_timeout(500ms)` 초과, 또는 `reservation_seats` 부분 유니크 인덱스 충돌 (E1, D2) |
+| `409` | `SEAT_ALREADY_HELD` | `schedule_seats` 조건부 UPDATE 결과 갱신 행 수 < 요청 좌석 수, DB `lock_timeout(50ms, ADR 0061)` 초과, 또는 `reservation_seats` 부분 유니크 인덱스 충돌 (E1, D2). 접수형은 접수 단계에서 요청 좌석이 `AVAILABLE`이 아니거나 추첨석으로 보일 때도 즉시 반환한다(ADR 0057) |
+| `409` | `ZONE_SOLD_OUT` | 자동 배정(1-2절)에서 고른 구역·등급(또는 회차 전체)에 남은 선점 가능 좌석이 요청 매수보다 적은 경우. 다른 범위로 넘기지 않는다(ISE-264) |
 | `409` | `IDEMPOTENCY_KEY_REUSED` | 이미 사용된 `Idempotency-Key`로 다른 `scheduleId`·다른 `seatIds`·다른 사용자의 요청이 들어온 경우 (E2) |
 | `409` | `RESERVATION_NOT_PAYABLE` | 같은 `Idempotency-Key`로 재요청했으나 기존 선점 예매가 이미 만료(`EXPIRED`)·해제(`RELEASED`)·취소(`CANCELED`)되었거나 결제 토큰 발급 가능 시각(`holdExpiresAt - 10초`)이 지난 경우 |
-| `503` | `SERVICE_UNAVAILABLE` | DB 연결 실패 등 일시적 인프라 장애 |
+| `503` | `SERVICE_UNAVAILABLE` | DB 연결 실패 등 일시적 인프라 장애, 또는 선점 동시 처리 상한(`seat-hold.max-concurrent`)을 넘어 `seat-hold.max-concurrent-wait` 안에 자리를 얻지 못한 경우(ADR 0062, 기본 끔) |
 
 ---
 
@@ -176,7 +232,7 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 선점 모듈(`seathold`)이 예매(`HELD`)를 저장한 직후 응답에 `paymentToken`과 `paymentTokenExpiresAt`을 담으려면 예매 흐름 담당(반효승)이 구현할 **결제 토큰 발급 컴포넌트**를 호출해야 한다([ISE-22](https://linear.app/myworkspace1075/issue/ISE-22)).
 - 결제 토큰 규칙([contracts.md](../payment/contracts.md) 1절 확정):
   - claim: `typ="payment"`, `aud="payment-service"`, `sub`(문자열 userId), `reservationId`(JSON 정수), `amount`(JSON 정수), `exp`(`holdExpiresAt - 10초`), `jti`(UUID)
-  - 서명: HS256, `PAYMENT_TOKEN_SECRET` (`TokenDecoders.signingKey(secret)`)
+  - 서명: ES256, 개인키 `PAYMENT_TOKEN_PRIVATE_KEY`(PKCS#8 DER의 Base64 한 줄, ISE-245·ADR 0055). 결제 서비스는 공개키로 검증한다
 - **인터페이스 제안**:
   ```java
   public interface PaymentTokenIssuer {
@@ -185,6 +241,8 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
       record IssuedPaymentToken(String token, Instant expiresAt) {}
   }
   ```
+- **위치(2026-11-13 정함, ISE-273)**: 포트는 `reservation.application.PaymentTokenIssuer`, 구현은 `reservation.infrastructure.token.JwtPaymentTokenIssuer`다. 토큰 claim(예매 ID·금액·만료)이 모두 예매의 값이라 예매 모듈이 소유하고, 선점 모듈은 [ADR 0034](../../decisions/0034-seathold-unidirectional-module-boundary.md)가 허용한 `seathold → reservation` 방향으로 쓴다. 처음에는 선점 응답만 써서 `seathold`에 뒀으나 예매 상세 조회(ISE-171)도 발급하면서 `reservation → seathold` import가 생겨 옮겼다.
+- **결제 가능 판정**: "HELD이고 `holdExpiresAt - 10초` 전"은 `Reservation.isPayableAt(now)` 하나로 판단한다. 10초는 `Reservation.PAYMENT_CLOSE_MARGIN`이고 토큰 `exp`도 같은 상수로 계산한다. 선점 재요청(3절 3번), 접수형 결과 조회, 예매 상세 조회가 모두 이 판정을 쓴다.
 
 ### 5-2. 대기열 모듈·Gateway(권영은)와의 경계 — 입장 토큰 회차 검증 (`ISE-20`)
 - 2026-10-29 정함: 선점 경로에 `scheduleId`를 둔다(`POST /api/v1/schedules/{scheduleId}/reservations`).
@@ -200,7 +258,7 @@ SA 17-2 U1(서비스 간 계약 4종 확정) 중 **계약 ② 좌석 선점 결�
 | 1 | 동기형 201 응답 및 접수형 `reservation` 블록 필드: `requestId`, `reservationId`, `reservationNo`, `scheduleId`, `seatIds`, `status`, `holdExpiresAt`, `totalAmount`, `paymentToken`, `paymentTokenExpiresAt` | 2절 표 그대로 (`scheduleId`·`seatIds` 포함) |
 | 2 | 동기형 실패(409) 시 `seat_hold_requests` 행도 함께 롤백하고, 성공(`HELD`) 시에만 커밋해 멱등 재요청에 응답 | 3절 표 그대로 ([ADR 0032](../../decisions/0032-seat-hold-result-and-idempotency-contract.md)) |
 | 3 | 이미 만료·해제·취소됐거나 `holdExpiresAt - 10초`가 지난 선점에 같은 멱등키로 재요청 시 `409 RESERVATION_NOT_PAYABLE` 반환 | 3절 표 그대로 |
-| 4 | 결제 토큰 발급기(`PaymentTokenIssuer`) 시그니처와 패키지 위치(`reservation` 도메인/응용 또는 공유 포트) | 5-1절 제안 그대로 |
+| 4 | 결제 토큰 발급기(`PaymentTokenIssuer`) 시그니처와 패키지 위치(`reservation` 도메인/응용 또는 공유 포트) | 시그니처는 5-1절 제안 그대로. 위치는 `reservation.application`(포트)·`reservation.infrastructure.token`(구현)으로 정함(2026-11-13, ISE-273) |
 
 ---
 

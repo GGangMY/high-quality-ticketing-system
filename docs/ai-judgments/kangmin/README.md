@@ -8,6 +8,45 @@ kangmin이 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 판단 대상 | AI | 판단 | 공통 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-16 | 추첨 배정 워커 속도 상한으로 A안(주기당 성공 배정 상한 10, 시도 상한 100 유지)을 받아들임 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-16-lottery-assign-per-cycle-cap.md) |
+| 2026-11-16 | 사용자 3,000명·좌석 15,000석으로 매진이 나지 않는 AI의 O1 조건을 현실과 멀다고 보고 수요 ≫ 좌석 매진 시나리오로 다시 재기로 함 | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-16-scarcity-scenario.md) |
+| 2026-11-16 | ISE-94 시나리오 3 미달을 정책으로 갈음하자는 AI 추천을 받지 않고 추첨 워커 속도 상한을 걸어 다시 재기로 함 | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-16-lottery-scenario3-remeasure.md) |
+| 2026-11-16 | ISE-230 3번(bulkhead 끄는 설정)을 배포 지표 미확인으로 남기고 닫자는 AI 추천을 받지 않고 컨텍스트 테스트 근거로 체크하기로 함 | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-16-ise230-bulkhead-checkbox-by-test.md) |
+| 2026-11-15 | 서버 명령은 사람이 치고 AI는 명령표만 만든다는 방식을 바꿔 배포 서버 점검·측정을 AI에게 전부 맡기고 상황 보고를 이어서 받기로 함 | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-15-delegate-server-measurement.md) |
+| 2026-11-15 | 팀 답을 기다린 뒤 진행하자는 AI 계획을 받지 않고 ISE-269 4번 행 처리안과 ISE-230 안전망 상한을 선조치 후보고로 진행하기로 함 | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-15-proceed-without-team-reply.md) |
+| 2026-11-15 | dev → main 뒤 재측정을 오늘은 하지 말자는 AI 추천을 받지 않고 main 기준 측정 뒤 같은 날 머지·재측정까지 하기로 함 | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-15-remeasure-after-main-today.md) |
+| 2026-11-14 | Synthetic O1 측정 전 dev → main을 먼저 하자는 AI 추천을 받지 않고 지금 배포된 main(`e109c11c`)으로 측정하기로 함 | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-14-measure-on-current-main.md) |
+| 2026-11-14 | SA 14장 4번 행(응모 Kafka 접수 거부)과 10/29 동기 INSERT 수용의 어긋남을, 판단 칸은 덮어쓰지 않고 프롬프트 칸만 지금 고치고 이력 보존·#11 행 추가안을 팀 안건으로 올림 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-14-sa14-row4-keep-history-add-row.md) |
+| 2026-11-14 | ISE-271에 PR AI 리뷰는 최소형 전부·위험 PR만 코멘트, 계약 경계 PR은 상대 확인·반나절 뒤 사후 확인으로 의견을 냄 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-14-ise271-review-minimum-all-comment-risky.md) |
+| 2026-11-13 | Synthetic O1 페르소나 세분화에서 AI가 낸 행동 축 6개 안(도착·진입 공격성·좌석 욕심·결정 속도·집착도·구매 의지)을 받아들임 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-synthetic-persona-six-factors.md) |
+| 2026-11-13 | O1 시나리오 검토 제안 중 2~4번을 받아들이되 그림자 폴러는 multi_device에만 두고, 대기 이탈 비용은 별도 실행 대신 계산으로 보기로 함 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-13-o1-scenario-review-four-proposals.md) |
+| 2026-11-13 | 대기열 조회만으로 정한 Gateway 통합 상한 64의 측정 범위를 지적하고, 섞인 트래픽에서는 통합 상한을 메모리 안전망으로 올리고 경로별 상한은 측정 뒤에 두자는 추천을 받아들임 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-in-flight-limit-as-safety-net-first.md) |
+| 2026-11-13 | **ISE-230 남은 확인 세 건은 답을 받은 뒤 마무리하자는 AI 순서를 거부하고, Retry-After 분리(A안)와 ADR 0050·0052 채택·대시보드·경보를 선조치 후보고로 진행함** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-13-adopt-adr-0050-0052-before-replies.md) |
+| 2026-11-12 | **걸릴 일이 없는 Gateway Lettuce 시한 300ms를 "마지막 안전망"으로 유지하자는 AI 결론을 거부함** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-12-reject-keep-dead-lettuce-timeout.md) |
+| 2026-11-13 | 결제 토큰 발급 포트를 seathold에서 reservation 모듈로 옮기자는 추천을 받아들이고 직접 맡아 판정 통합까지 처리함 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-move-payment-token-issuer-to-reservation.md) |
+| 2026-11-12 | 선점 뒤 issued 정리를 리스너 대신 훅 메서드로 하자는 추천을 담당 의견을 받은 뒤 정하기로 함(ISE-207) | Claude Code | 보류 | 예 | 아님 | [기록](2026-11-12-issued-cleanup-hook-over-listener.md) |
+| 2026-11-12 | Mock PG 원장 유실로 닫을 수 없는 환불 NMC를 묵음 처리하려다 철회하고 결제 담당에게 맡김 | Claude Code | 보류 | 예 | 아님 | [기록](2026-11-12-silence-refund-manual-check-aging.md) |
+| 2026-11-12 | **입장 토큰 소모 시점으로 AI가 추천한 A'(선점 시 소모 + 한 번 더 기회) 대신, 팀 회의에서 A(선점 성공 시 소모)로 정함** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-12-entry-token-consume-on-hold-team-decision.md) |
+| 2026-11-12 | **Gateway 과부하 발표 자료를 HTML 슬라이드로 만들자는 AI 추천을 거부하고, 소스 문서만 정리해 결제 담당이 가공하게 함** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-12-presentation-source-only.md) |
+| 2026-11-12 | **Gateway CPU를 줄이려 대기열 폴링 상한(poll-max)을 10초에서 30초로 늘리자는 AI 제안을 거부함** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-12-reject-poll-max-30s.md) |
+| 2026-11-12 | **요청 로그 PR은 리뷰 뒤 머지하고 재측정은 11/13에 하자는 AI 계획을 거부하고, 리뷰 전에 main까지 반영해 바로 배포 측정함(선조치 후보고)** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-12-merge-and-deploy-before-review.md) |
+| 2026-11-12 | 측정표 답글·결제와 예매 DB 풀 contract·요청 로그 B안 설계·R0 준비에 대한 AI 추천 9건(D1~D9)을 그대로 받아들임 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-12-accept-d1-d9-posting-and-h2-plan.md) |
+| 2026-11-12 | **"MD 뷰어로 보게 해 달라"를 앱 파일 패널로 처리한 AI 해석을 바로잡고, 로컬 웹페이지 MD 뷰어부터 만든 뒤 결정을 미룸** | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-12-local-md-viewer-before-decisions.md) |
+| 2026-11-12 | **서사 문서의 7차 빈칸은 별도 커밋으로 미루자는 AI 추천을 거부하고, 커밋 전에 7차 결과를 모두 채움** | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-12-fill-story-blanks-before-commit.md) |
+| 2026-11-11 | 배포 서버 7차에서 요청 로그 비용이 확인되자, 운영 요청 로그를 실패·느린 요청만 남기는 안(B)을 고름 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-11-request-log-failures-and-slow-only.md) |
+| 2026-11-11 | **H1 배포와 7차 측정을 내일 아침에 하자는 AI 추천을 거부하고, H1 PR이 dev에 머지되면 오늘 이어서 배포·측정함** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-11-run-7th-measurement-today.md) |
+| 2026-11-11 | **Gateway 동시 처리 수 상한 기본값을 128로 올리자는 6차 세션 제안을 거부하고, p95 여유를 이유로 64 유지를 추천한 메인 세션 안을 받아들임** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-11-keep-in-flight-limit-64.md) |
+| 2026-11-11 | Gateway CPU 포화와 OOM을 막는 첫 장치로 맨 앞 동시 처리 수 상한을 고르고, 설계안·프런트 표시·첫 상한 64를 AI 추천대로 정함 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-11-gateway-in-flight-limit-first.md) |
+| 2026-11-11 | Gateway CPU의 약 24%를 쓰는 관측(추적·지표·로그 문맥) 축소를 위험하다고 보고 보류함 | Claude Code | 보류 | 예 | 아님 | [기록](2026-11-11-defer-gateway-observability-reduction.md) |
+| 2026-11-11 | **긴 측정 뒤 배포 실패를 막으려고 Zipkin 힙을 늘리자는 AI 추천을 거부하고, 메모리 설정은 두고 스케줄러 Redis 스팬을 근원에서 줄이며 이미지 받기 재시도를 더함** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-11-reduce-scheduler-redis-spans-keep-zipkin-memory.md) |
+| 2026-11-11 | **한 서버 자원 격리 개선(M1 메모리 예산 등)을 contract 이슈로 인프라 담당과 먼저 합의하자는 AI 추천을 거부하고, 측정과 함께 순서대로 바로 진행함** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-11-resource-isolation-without-infra-agreement.md) |
+| 2026-11-11 | **Gateway CPU 포화를 맨 앞 유입 제한으로 막자는 AI 추천을 거부하고, auth-redis 차단기를 단계적으로 예민하게 바꿔 포화 전에 열리는지 먼저 실험함** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-11-breaker-first-for-gateway-cpu-saturation.md) |
+| 2026-11-11 | PR 487 대기열 담당 리뷰 반영에서 오픈 피크용 거절 경보를 따로 두자는 AI 추천(A안)을 받아들임 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-11-pr487-review-peak-alert.md) |
+| 2026-11-11 | 자동결제·일반 결제 한도 개선에서 전용 허가 d1과 Erlang B 산정은 AI 추천을 받아들이고, 일반 결제 목표는 추천 없이 초당 30으로 정함 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-11-lottery-billing-isolation-and-approve-size.md) |
+| 2026-11-11 | Gateway auth-redis 운영값을 G1 2회 값(필터 시한 200ms·Lettuce 300ms)으로 정하고 bulkhead 거절 비율 경보를 같이 넣자는 AI 추천을 받아들임 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-11-gateway-auth-redis-operating-values.md) |
+| 2026-11-11 | F1 장애 주입의 실행 주체(이번만 에이전트 SSH 실행 예외)·Kafka 정지·NOT_SENT 테스트 대체·경보 범위·선점 만료 앞당기기를 AI 추천안대로 정함 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-11-f1-execution-decisions.md) |
+| 2026-11-11 | F1-a 결제 서버 강제 종료를 첫 결제 행 감지 시 자동 kill로 바꾸고 추첨석은 절차서대로 20석 유지 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-11-f1a-auto-kill-trigger.md) |
+| 2026-11-11 | F1을 측정 모드 없이 하자는 AI 추천을 거부하고, 배포 서버 테스트는 측정 모드 on과 팀 알림을 필수로 함 | Claude Code | 거부 | 예 | 후보 | [기록](2026-11-11-f1-measure-mode-required.md) |
 | 2026-11-10 | auth-redis 재측정 값을 느린 호출 100ms·80%, 시한 200ms, 벌크헤드 50(거절은 차단기 집계에서 제외), 실패율 50%로 하자는 AI 추천을 받아들임 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-10-auth-redis-timeout-bulkhead-measure-values.md) |
 | 2026-11-10 | 이슈 자동 완료를 피하려고 PR 제목·브랜치에서 이슈 번호를 뺀 AI 방식을 거부하고, 번호를 넣은 채 연결 종류로 완료를 막게 함 | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-10-keep-issue-number-in-pr-title.md) |
 | 2026-11-10 | 11/11 회의에서 개선안을 정하고 11/13에 재측정하자는 AI 일정을 거부하고, 개선 적용과 재측정을 최대한 앞당기기로 함 | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-10-pull-forward-improvement-remeasure.md) |
@@ -98,6 +137,11 @@ kangmin이 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 일지 |
 |---|---|
+| 2026-11-16 | [daily/2026-11-16.md](daily/2026-11-16.md) |
+| 2026-11-15 | [daily/2026-11-15.md](daily/2026-11-15.md) |
+| 2026-11-14 | [daily/2026-11-14.md](daily/2026-11-14.md) |
+| 2026-11-13 | [daily/2026-11-13.md](daily/2026-11-13.md) |
+| 2026-11-12 | [daily/2026-11-12.md](daily/2026-11-12.md) |
 | 2026-11-11 | [daily/2026-11-11.md](daily/2026-11-11.md) |
 | 2026-11-10 | [daily/2026-11-10.md](daily/2026-11-10.md) |
 | 2026-11-09 | [daily/2026-11-09.md](daily/2026-11-09.md) |

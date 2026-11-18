@@ -8,8 +8,35 @@ kwonwoo가 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 판단 대상 | AI | 판단 | 공통 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-17 | 배포 측정(ISE-296) 결과로 선점 동시 처리 상한은 운영에서 켜지 않고 커넥션 풀은 5를 유지하기로 함(ADR 0062 갱신, ADR 0064 확인) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-17-limit-off-pool-keep-after-deploy.md) |
+| 2026-11-16 | 배포 서버 단계 측정(ISE-296)에서 A0가 게이트웨이 동시 처리 상한 64에 막혀, 상한을 끄고 S0부터 다시 재기로 함 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-16-a0-deploy-gateway-inflight-off.md) |
+| 2026-11-16 | 배포 측정을 설정 덮어쓰기로 단계를 올리며 한 번에 끝내는 AI 안을 받아들이고, ISE-293(503)을 측정 전에 넣고 ISE-261 이전 코드 비교는 뒤로 미룸 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-16-deploy-step-measurement-plan.md) |
+| 2026-11-16 | 접수형 장애 때 동기형으로 급히 되돌리는 비상 전환을 AI 추천대로 범위 밖으로 둠(ISE-255, ADR 0057 변경) | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-16-ise255-emergency-switch-out-of-scope.md) |
+| 2026-11-16 | dev 병합 뒤 "기존 방식이 나은 점"에 대한 다른 기기 AI 분석을 측정으로 검증해, 캐시 사전 거절은 남기고("아끼는 몫이 작다"는 기각) 자동 배정 개선은 담당에게 제안하기로 함 | Claude Code 두 세션 | 부분 수용 | 예 | 후보 | [기록](2026-11-16-verify-other-agent-precheck-analysis.md) |
+| 2026-11-16 | ISE-18 직접 발행을 커밋 뒤 전송·실패해도 202로 정하고, 측정 기준 코드에 ISE-261을 병합하기로 함(AI 추천 3개 모두 수용) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-16-ise18-direct-publish-after-commit.md) |
+| 2026-11-16 | 자동 배정 API contract(ISE-287)를 AI 대조 결과대로 확인 완료로 답하고 후속 제안 세 건(사전 조회 합치기, 잠금 뒤 문장 줄이기, 겹친 인덱스 정리)을 함께 남김 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-16-ise287-auto-assign-contract-confirmed.md) |
+| 2026-11-16 | 선점 동시 처리 상한만 키우지 않고 커넥션 풀과 함께 올려 로컬에서 재기로 함(config-repo는 ISE-237 결정대로 유지) | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-16-pool-and-limit-together.md) |
+| 2026-11-15 | 자율 성능 개선 반복 절차를 AI 검토안대로 보완하되 판정은 종합 판단, 종료 5회, 커밋 자율, 검토는 별도 세션으로 정함 | Claude Code | 부분 수용 | 아니오 | 후보 | [기록](2026-11-15-autonomous-perf-loop-procedure.md) |
+| 2026-11-14 | 배포 측정 전 개선안 중 계측 보강·만료 주기·토큰 서명 이동을 차례로 넣어 재고, 풀 크기(ISE-237 있음)·캐시 읽기 메서드(ISE-281 등록)는 contract로 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-14-pre-deploy-improvements-2-5-6-and-contracts.md) |
+| 2026-11-14 | ISE-17을 먼저 최신화·머지하고, ISE-261의 사전 거절·순서 변경을 공용 선점 본체(`SeatHolding`) 위에서 다시 맞추기로 함 | Claude Code | 수용 | 아니오 | 아님 | [기록](2026-11-14-ise17-first-then-ise261-on-shared-body.md) |
+| 2026-11-13 | 좌석 선점 구조 개선 세 가지(먼저 거절, 잠금 뒤로, 동시 처리 상한)를 AI 추천 순서대로 넣고 단계별로 부하 측정(ADR 0062) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-seathold-structure-three-fixes.md) |
+| 2026-11-13 | **AI가 먼저 추천한 SKIP LOCKED를 측정(C2 성공 83→56) 뒤 거부하고 잠금 대기 50ms를 택함(ADR 0061, TS-73)** | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-13-reject-skip-locked-choose-50ms.md) |
+| 2026-11-13 | 좌석 선점 개선안 중 잠긴 좌석을 기다리지 않기(SKIP LOCKED)를 새 이슈 ISE-261로 먼저 하기로 함(뒤에 거부로 바뀜) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-seathold-skip-locked-first.md) |
+| 2026-11-13 | ISE-17 소비자의 30초 시한 경합은 추천안(요청 행 잠금)을, 잠금 시한은 AI 추천(500ms) 대신 지표가 나은 100ms를 고름 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-13-ise17-consumer-lock-and-timeout-by-metrics.md) |
+| 2026-11-13 | 지표 비용은 시계열 수에서 나온다는 분석을 받아 ISE-277을 SLO 버킷 방식(reservation-service만, 버킷 8개)으로 ISE-17보다 먼저 처리함 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-13-ise277-slo-buckets-before-ise17.md) |
+| 2026-11-13 | 접수형 소비자(ISE-17)보다 입장 토큰 소모(ISE-207) 선점 쪽 구현을 먼저 함(이벤트 형식을 읽는 쪽이 없을 때 바꿈) | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-13-ise207-before-ise17.md) |
+| 2026-11-13 | **입장 토큰 소모 뒤 `issued` 정리를 AFTER_COMMIT 리스너(ADR 0053 초안) 대신 트랜잭션 밖 메서드 호출로 바꾸는 대기열 담당 제안에 동의(커넥션 점유)** | Claude Code | 거부 | 예 | 후보 | [기록](2026-11-13-entry-token-discard-by-method-not-listener.md) |
+| 2026-11-12 | 모드 전환 뒤 같은 키 재요청 500 빈틈을, 접수형으로 시작한 요청은 202로 답하는 C안으로 막음(다섯 번의 반문으로 대안 검증) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-12-sync-replay-of-async-requests.md) |
+| 2026-11-12 | 접수형 선점(ISE-16)의 남은 결정 다섯 가지를 추천안대로 정함(접수 단계 409 즉시 거절, 기동 시 모드, 조회 API 상시 개방, 릴레이 제약·직접 발행은 ISE-17·18로) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-12-async-seat-hold-intake-decisions.md) |
+| 2026-11-12 | 접수형 선점에서 구역이 섞인 요청을 거부하자는 첫 추천 대신, 가장 작은 구역을 키로 쓰는 2안을 고름(일행 예매 원자성 근거 보강) | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-12-async-seat-hold-mixed-section-key.md) |
+| 2026-11-12 | 좌석 배치는 로컬 캐시가 Redis보다 낫다는 AI 설명을 그대로 받지 않고, Redis로도 구현해 측정으로 비교하게 함 | Claude Code | 보류 | 예 | 후보 | [기록](2026-11-12-verify-local-vs-redis-layout-cache-by-measurement.md) |
 | 2026-11-12 | **좌석 조회·갱신 통합(1-1)에서 사전 배치 캐시 참조를 캐시 스탬피드·커넥션 교착 위험으로 거부하고, 15개 성능 개선안의 손익을 검증해 후속 작업 대상을 추림** | Antigravity (Gemini) | 부분 수용 | 예 | 후보 | [기록](2026-11-12-pr458-perf-options-stampede-and-net-benefit.md) |
+| 2026-11-10 | 좌석 조회 경량화는 담당자(반효승)가 dev에 넣은 P4a를 살려 진행하고, 측정 브랜치 코드는 참고로만 둠 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-10-adopt-owner-p4a-keep-measurement-code-as-reference.md) |
+| 2026-11-09 | P4d 조건이 맞았지만 K1 좌석 조회 개선을 P4c에서 마치고 K1-H로 넘어감 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-09-k1-stop-at-p4c-skip-p4d.md) |
+| 2026-11-09 | **측정 기기를 옮길 때 번들 대신 브랜치를 푸시하고, 세션 핸드오프 메모는 푸시하지 않고 직접 옮김** | Claude Code | 거부 | 예 | 아님 | [기록](2026-11-09-push-measurement-branches-keep-handoff-local.md) |
 | 2026-11-09 | k6 측정을 다른 기기로 옮긴 뒤, 이 기기에서는 AI가 추천한 정합성 대사(ISE-14)를 먼저 구현 | Claude Code | 수용 | 아니오 | 아님 | [기록](2026-11-09-ise14-reconciliation-while-measuring-elsewhere.md) |
+| 2026-11-07 | K1-H를 막은 Gateway 인증 차단기를 측정 환경에서만 완화(느린 호출 판정 끔)하고, Gateway 담당과의 조율은 측정이 끝난 뒤로 보류 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-07-k1h-relax-gateway-breaker-in-measurement.md) |
+| 2026-11-06 | k6 단계별 개선을 수정 없는 기본 코드에서 시작해 병목을 직면하는 순서로 다시 설계(G1·R1·S4도 단계로, 워밍업 1분, 최종도 local) | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-06-k6-steps-from-unmodified-base.md) |
 | 2026-11-06 | 좌석 조회 경량화(P4) 측정을 반효승 담당에서 일부 가져와 좌석 선점과 같은 환경(측정 브랜치)에서 재고, 본 구현은 ISE-189에 둠 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-06-measure-p4-seat-map-in-own-environment.md) |
 | 2026-11-05 | P4를 바로 시작하자는 제안 대신 G1 GC로 먼저 재 보고, 정상 결과가 나오면 기존 순서를, 안 나오면 P4를 먼저 하기로 함 | Claude Code | 부분 수용 | 예 | 후보 | [기록](2026-11-05-g1-first-then-decide-p4-order.md) |
 | 2026-11-04 | **JUnit 부하 근사(`SeatHoldLoadTest`) 대신 k6로 부하 테스트를 다시 하기로 하고, 대기열 초당 100명 입장 기준 병목·단계별 개선 계획 작성** | Claude Code | 거부 | 예 | 후보 | [기록](2026-11-04-k6-over-junit-load-approximation.md) |
@@ -29,6 +56,15 @@ kwonwoo가 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 일지 |
 |---|---|
+| 2026-11-17 | [일지](daily/2026-11-17.md) |
+| 2026-11-16 | [일지](daily/2026-11-16.md) |
+| 2026-11-15 | [일지](daily/2026-11-15.md) |
+| 2026-11-12 | [일지](daily/2026-11-12.md) |
+| 2026-11-11 | [일지](daily/2026-11-11.md) |
+| 2026-11-10 | [일지](daily/2026-11-10.md) |
+| 2026-11-09 | [일지](daily/2026-11-09.md) |
+| 2026-11-07 | [일지](daily/2026-11-07.md) |
+| 2026-11-06 | [일지](daily/2026-11-06.md) |
 | 2026-11-05 | [일지](daily/2026-11-05.md) |
 | 2026-11-04 | [일지](daily/2026-11-04.md) |
 | 2026-11-02 | [일지](daily/2026-11-02.md) |

@@ -1,13 +1,16 @@
 package com.iseonjwa.reservation.concert.presentation.dto.response;
 
+import com.iseonjwa.reservation.concert.application.ScheduleSeatsResult;
 import com.iseonjwa.reservation.concert.domain.entity.SeatGrade;
-import com.iseonjwa.reservation.concert.domain.repository.ScheduleSeatRow;
+import com.iseonjwa.reservation.concert.domain.repository.SeatLayoutRow;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 // 좌석 조회 응답의 구역 하나. 한 구역은 한 등급·한 가격이다(공연장 시드, 등급별 가격)
 @Getter
@@ -23,13 +26,25 @@ public class SeatSectionResponse {
 
     private List<SeatResponse> seats;
 
+    // 배치는 구역 → 열 → 번호 순으로 와야 한다. LinkedHashMap이 구역이 처음 나온 순서를 지킨다
+    public static List<SeatSectionResponse> listOf(ScheduleSeatsResult result) {
+        List<SeatLayoutRow> seats = result.getSeats();
+        boolean[] available = result.getAvailable();
+        Map<String, SeatSectionResponse> sections = new LinkedHashMap<>();
+        for (int i = 0; i < seats.size(); i++) {
+            SeatLayoutRow seat = seats.get(i);
+            sections.computeIfAbsent(seat.section(), section -> from(seat)).add(seat, available[i]);
+        }
+        return new ArrayList<>(sections.values());
+    }
+
     // 구역의 첫 좌석으로 구역 정보를 만든다. 추첨석도 원래 등급 가격을 그대로 갖는다
-    public static SeatSectionResponse from(ScheduleSeatRow seat) {
+    public static SeatSectionResponse from(SeatLayoutRow seat) {
         return new SeatSectionResponse(seat.section(), seat.sectionGrade(), seat.price().toBigDecimal(),
                 new ArrayList<>());
     }
 
-    public void add(ScheduleSeatRow seat) {
-        seats.add(SeatResponse.from(seat));
+    public void add(SeatLayoutRow seat, boolean available) {
+        seats.add(SeatResponse.of(seat, available));
     }
 }

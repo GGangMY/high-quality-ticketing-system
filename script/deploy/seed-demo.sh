@@ -18,12 +18,17 @@
 #                형식과 "공연 시작(8일 뒤)보다 앞선다"를 API를 부르기 전에 검사하고, 틀리면 아무것도 만들지 않고 2로 끝난다
 #   VENUE_ID     공연장 id. 없으면 예약 DB에서 KSPO DOME의 id를 찾는다(공연장 조회 API가 없다)
 #   COMPOSE_PROJECT_NAME  예약 DB 컨테이너를 찾을 compose 프로젝트(같은 서버에 스택이 둘일 때만)
-#   LOTTERY_SEAT_COUNT(기본 3000), LOTTERY_WAITLIST_COUNT(기본 1000), LOTTERY_MAX_PER_ENTRY(기본 2)  lottery의 추첨석·예비 수·1인 매수
+#   LOTTERY_SEAT_COUNT(기본 300), LOTTERY_WAITLIST_COUNT(기본 1000), LOTTERY_MAX_PER_ENTRY(기본 2)  lottery의 추첨석·예비 수·1인 매수
 # 읽는 .env 키: ADMIN_EMAIL, ADMIN_PASSWORD, SAMPLE_USER_EMAIL, SAMPLE_USER_PASSWORD, SAMPLE_USER_NICKNAME, DB_USER
 # 종료 코드: 0 성공, 1 실패(API 응답 등), 2 사용법·입력 오류
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-title="이선좌 시연 공연"
+command -v jq > /dev/null || { echo "실패: jq가 없다. script/deploy/install-docker.sh로 설치하거나 apt install jq를 실행한다" >&2; exit 1; }
+# 시연 공연은 배포 공연 정의(ISE-302)의 대표 공연(demo: true)이다. seed-showcase.sh가 먼저 만들었으면 그 공연에 회차를 더한다
+showcase=frontend/src/data/showcase.json
+title=$(jq -r '[.concerts[] | select(.demo)][0].title // empty' "$showcase")
+demo_description=$(jq -r '[.concerts[] | select(.demo)][0].description // empty' "$showcase")
+[[ -n "$title" ]] || { echo "실패: ${showcase}에 demo 공연이 없다" >&2; exit 1; }
 iso_format='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
 
 usage() {
@@ -101,15 +106,15 @@ if [[ "$mode" == lottery ]]; then
   # 공연 시작은 추첨 다음 날이다. 서버 조건 "추첨 + 60분 <= 공연 시작"과 "오픈 < 공연 시작"을 함께 만족한다.
   starts_lottery_epoch=$(( draw_epoch + day ))
 
-  lottery_seat_count="${LOTTERY_SEAT_COUNT:-3000}"
+  lottery_seat_count="${LOTTERY_SEAT_COUNT:-300}"
   lottery_waitlist_count="${LOTTERY_WAITLIST_COUNT:-1000}"
   lottery_max_per_entry="${LOTTERY_MAX_PER_ENTRY:-2}"
   [[ "$lottery_seat_count" =~ ^[0-9]+$ ]] || bad_input "LOTTERY_SEAT_COUNT는 정수여야 한다: $lottery_seat_count"
   [[ "$lottery_waitlist_count" =~ ^[0-9]+$ ]] || bad_input "LOTTERY_WAITLIST_COUNT는 정수여야 한다: $lottery_waitlist_count"
   [[ "$lottery_max_per_entry" =~ ^[0-9]+$ ]] || bad_input "LOTTERY_MAX_PER_ENTRY는 정수여야 한다: $lottery_max_per_entry"
-  # 추첨석은 R 등급에서 바꾼다. KSPO DOME 시드(V20261030_2)의 R은 6,000석이다.
+  # 추첨석은 R 등급에서 바꾼다. KSPO DOME 시드의 R은 600석이다(V20261116_7로 15,000석 → 1,500석, ADR 0060).
   lottery_source_grade=R
-  lottery_source_seats=6000
+  lottery_source_seats=600
   (( lottery_seat_count >= 1 && lottery_seat_count <= lottery_source_seats ))     || bad_input "LOTTERY_SEAT_COUNT($lottery_seat_count)는 1 이상, $lottery_source_grade 등급 좌석 수($lottery_source_seats) 이하여야 한다"
   (( lottery_max_per_entry >= 1 && lottery_max_per_entry <= 2 )) || bad_input "LOTTERY_MAX_PER_ENTRY($lottery_max_per_entry)는 1~2여야 한다(서버 조건)"
 fi
@@ -190,11 +195,17 @@ resolve_venue() {
   echo "  공연장 KSPO DOME id=$venue_id"
 }
 
-prices='{"prices": [{"grade": "VIP", "price": 165000}, {"grade": "R", "price": 143000}, {"grade": "S", "price": 112000}]}'
+# 등급 가격과 1인 매수는 대표 공연 정의(showcase.json)를 따른다. seed-showcase.sh가 만든 회차와 같은 값이 되게 한다.
+# 추첨 측정 회차(lottery)는 1인 매수를 보내지 않아 서버 기본값(4)을 쓴다. 추첨의 1인 매수는 추첨 설정이 따로 정한다
+prices=$(jq '[.concerts[] | select(.demo)][0] | {prices: (.prices | to_entries | map({grade: .key, price: .value}))}' "$showcase")
+demo_max_per_user=$(jq '[.concerts[] | select(.demo)][0].maxPerUser // 4' "$showcase")
 # create_schedule <이름> <오픈 시각> <공연 시작> : 회차와 그 좌석을 만든다. 새 회차 id는 schedule_id에 둔다.
 create_schedule() {
+  local max_per_user=null
+  [[ "$mode" == lottery ]] || max_per_user="$demo_max_per_user"
   call POST "/api/v1/admin/concerts/$concert_id/schedules" 201 \
-    "$(jq -n --argjson v "$venue_id" --arg s "$3" --arg o "$2" '{venueId: $v, startsAt: $s, openAt: $o}')"
+    "$(jq -n --argjson v "$venue_id" --arg s "$3" --arg o "$2" --argjson m "$max_per_user" \
+      '{venueId: $v, startsAt: $s, openAt: $o} + (if $m == null then {} else {maxPerUser: $m} end)')"
   schedule_id=$(jq -r '.data.scheduleId' <<< "$response")
   call POST "/api/v1/admin/schedules/$schedule_id/seats" 201 "$prices"
   echo "  회차 만듦($1): $schedule_id, 오픈 $2, 좌석 $(jq -r '.data.createdSeats // empty' <<< "$response")석"
@@ -220,7 +231,7 @@ if [[ "$mode" == lottery ]]; then
   call POST "/api/v1/admin/schedules/$schedule_id/lotteries" 201     "$(jq -n --arg g "$lottery_source_grade" --argjson c "$lottery_seat_count" --argjson w "$lottery_waitlist_count"       --argjson m "$lottery_max_per_entry" --arg s "$entry_start_input" --arg e "$entry_end_input" --arg d "$draw_input"       '{sourceGrade: $g, seatCount: $c, waitlistCount: $w, maxPerEntry: $m, entryStartAt: $s, entryEndAt: $e, drawAt: $d}')"
   lottery_id=$(jq -r '.data.lotteryId // empty' <<< "$response")
   [[ -n "$lottery_id" ]] || fail "추첨 설정 응답에 lotteryId가 없다"
-  echo "  추첨 만듦: $lottery_id, 추첨석 $lottery_seat_count($lottery_source_grade), 예비 $lottery_waitlist_count, 1인 $lottery_max_per_entry매"
+  echo "  추첨 만듦: $lottery_id, 추첨석 $lottery_seat_count($lottery_source_grade), 예비 $lottery_waitlist_count, 1인 ${lottery_max_per_entry}매"
   echo "  응모 $entry_start_input ~ $entry_end_input, 추첨 $draw_input"
   echo "== 추첨 측정 데이터 시드 완료(k6에 넣을 값)"
   echo "SCHEDULE_ID=$schedule_id"
@@ -255,7 +266,7 @@ fi
 if (( schedule_count == 0 )); then
   resolve_venue
   if [[ -z "$concert_id" ]]; then
-    call POST /api/v1/admin/concerts 201 "$(jq -n --arg t "$title" '{title: $t, description: "리허설과 발표용 시연 공연이다"}')"
+    call POST /api/v1/admin/concerts 201 "$(jq -n --arg t "$title" --arg d "$demo_description" '{title: $t, description: $d}')"
     concert_id=$(jq -r '.data.concertId' <<< "$response")
     echo "  공연 만듦: $concert_id"
   fi

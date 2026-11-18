@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { Link } from 'react-router'
 import { concertPath } from '@/app/paths'
-import { concertArt, POSTER_SIZE, WIDE_SIZE } from '@/components/ticketing/concertArt'
+import { concertArt, FEATURED_ART, POSTER_SIZE, WIDE_SIZE } from '@/components/ticketing/concertArt'
 import { SaleStatusBadge } from '@/components/ticketing/SaleStatusBadge'
 import { Button } from '@/components/ui/button'
 import { formatDateTime, kstDaysUntil, kstParts } from '@/lib/format'
@@ -201,7 +201,7 @@ function HeroSlide({
   nowMillis: number
 }) {
   const { concert, next, status } = item
-  const art = concertArt(concert.concertId)
+  const art = concertArt(concert.concertId, concert.title)
   return (
     <div
       role="group"
@@ -254,7 +254,7 @@ function HeroSlide({
         </div>
         {/* 넓은 화면에서만 보인다. lazy라 좁은 화면(display:none)에서는 받지 않는다 */}
         {loadArt && next ? (
-          <HeroPass concertId={concert.concertId} startsAt={next.startsAt} />
+          <HeroPass concertId={concert.concertId} title={concert.title} startsAt={next.startsAt} />
         ) : null}
       </div>
     </div>
@@ -320,7 +320,7 @@ function LiveCountdown({ openAt }: { openAt: string }) {
   // 0이 된 뒤 묶음을 다시 나눌 때까지(최대 10초) "오픈 예정" 배지가 남는다. 0칸 대신 문장으로 바꿔 모순으로 보이지 않게 한다
   return total === 0 ? (
     <p className="type-body font-semibold text-gray-900">
-      티켓이 열렸어요. 공연 보기에서 예매해 주세요
+      티켓이 오픈되었습니다. 공연 보기에서 예매해주세요.
     </p>
   ) : (
     <CountdownUnits total={total} />
@@ -358,8 +358,16 @@ const PASS_CUT = 296
 // 그림 위에 기울여 놓은 입장권. 포스터 아래 절취선에서 양옆을 실제로 파낸다(.ticket-pass).
 // 꾸밈이라 읽지 않는다(제목·일시는 왼쪽 글자가 같은 내용을 가진다)
 // Note: mask는 테두리 밖 box-shadow까지 자른다. 그림자는 바깥 래퍼의 drop-shadow로 그려, 파낸 홈 모양까지 따라가게 한다
-function HeroPass({ concertId, startsAt }: { concertId: number; startsAt: string }) {
-  const art = concertArt(concertId)
+function HeroPass({
+  concertId,
+  title,
+  startsAt,
+}: {
+  concertId: number
+  title: string
+  startsAt: string
+}) {
+  const art = concertArt(concertId, title)
   const when = kstParts(startsAt)
   return (
     <div
@@ -408,7 +416,7 @@ function HeroPass({ concertId, startsAt }: { concertId: number; startsAt: string
 
 // 보일 공연이 없을 때의 배너. 서비스 소개만 한다
 function BrandHero() {
-  const art = concertArt(1)
+  const art = FEATURED_ART
   return (
     <section
       aria-label="이선좌 소개"
@@ -430,8 +438,8 @@ function BrandHero() {
           오픈 순간에도 흔들리지 않는 예매
         </h2>
         <p className="max-w-[520px] type-body text-gray-700">
-          대기열로 순서를 지키고, 고른 좌석은 결제하는 동안 잡아 둬요. 일부 좌석은 추첨으로 공정하게
-          나눠요.
+          대기열로 순서를 지키고, 선택한 좌석은 결제하는 동안 유지됩니다. 일부 좌석은 추첨으로
+          공정하게 배정됩니다.
         </p>
       </div>
     </section>

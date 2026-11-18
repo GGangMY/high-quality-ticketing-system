@@ -92,9 +92,9 @@ describe('ConcertDetailPage', () => {
     // 다시 조회하지 않고 켜졌다
     expect(detailRequests).toHaveLength(1)
     // 카운트다운은 매초 읽지 않으므로 열린 순간을 따로 알린다
-    expect(screen.getByText('예매가 열렸어요')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('예매가 오픈되었습니다')).toHaveAttribute('aria-live', 'polite')
     // 카운트다운 줄 자리를 남겨 [예매하기]가 위로 뛰지 않는다
-    expect(screen.getByText('지금 열렸어요')).toBeInTheDocument()
+    expect(screen.getByText('지금 오픈되었습니다')).toBeInTheDocument()
   })
 
   it('카운트다운이 0을 보이는 순간 예매 패널의 1초 갱신을 기다리지 않고 예매하기가 켜진다', async () => {
@@ -126,7 +126,7 @@ describe('ConcertDetailPage', () => {
     await tick(3000)
 
     expect(screen.getByRole('link', { name: '예매하기' })).toBeInTheDocument()
-    expect(screen.getByText('예매가 열렸어요')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('예매가 오픈되었습니다')).toHaveAttribute('aria-live', 'polite')
   })
 
   it('처음부터 예매 중인 회차는 열렸다고 알리지 않는다', async () => {
@@ -135,8 +135,8 @@ describe('ConcertDetailPage', () => {
     renderRoutes(routes, '/concerts/7')
 
     expect(await screen.findByRole('link', { name: '예매하기' })).toBeInTheDocument()
-    expect(screen.queryByText('예매가 열렸어요')).not.toBeInTheDocument()
-    expect(screen.queryByText('지금 열렸어요')).not.toBeInTheDocument()
+    expect(screen.queryByText('예매가 오픈되었습니다')).not.toBeInTheDocument()
+    expect(screen.queryByText('지금 오픈되었습니다')).not.toBeInTheDocument()
   })
 
   it('고르지 않은 기본 회차는 목록 앞 회차가 열려도 바뀌지 않는다(보던 회차의 대기열로 간다)', async () => {
@@ -218,12 +218,12 @@ describe('ConcertDetailPage', () => {
 
     // 시각으로는 판매 중이어도 서버가 CLOSED면 따른다
     expect(within(labelOf(closed)).getByText('판매 종료')).toBeInTheDocument()
-    expect(within(panel).getByText('판매가 끝났어요')).toBeInTheDocument()
+    expect(within(panel).getByText('판매가 종료되었습니다')).toBeInTheDocument()
     expect(within(panel).queryByRole('link', { name: '예매하기' })).not.toBeInTheDocument()
     expect(within(panel).queryByRole('button', { name: '예매하기' })).not.toBeInTheDocument()
   })
 
-  it('회차를 바꾸면 예매 패널이 고른 회차의 카운트다운·버튼·매수로 바뀐다', async () => {
+  it('회차를 바꾸면 예매 패널이 선택한 회차의 카운트다운·버튼·매수로 바뀐다', async () => {
     const now = Date.now()
     serveDetail(detail(now, [{ openAt: iso(now + HOUR), maxPerUser: 2 }, { maxPerUser: 6 }]))
     renderRoutes(routes, '/concerts/7')
@@ -301,7 +301,7 @@ describe('ConcertDetailPage', () => {
 
     const panel = within(await bookingPanel())
 
-    expect(panel.getByText('등록된 회차가 없어요')).toBeInTheDocument()
+    expect(panel.getByText('등록된 회차가 없습니다')).toBeInTheDocument()
     expect(panel.queryByRole('radio')).not.toBeInTheDocument()
     expect(panel.queryByRole('link', { name: '예매하기' })).not.toBeInTheDocument()
   })
@@ -341,7 +341,7 @@ describe('ConcertDetailPage', () => {
   it('없는 공연이면 목록으로 돌아가는 안내를 보인다', async () => {
     renderRoutes(routes, '/concerts/999')
 
-    expect(await screen.findByText(/찾는 공연이 없어요/)).toBeInTheDocument()
+    expect(await screen.findByText(/찾는 공연이 없습니다/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '목록으로' })).toHaveAttribute('href', '/')
   })
 
@@ -356,7 +356,7 @@ describe('ConcertDetailPage', () => {
       })
       renderRoutes(routes, `/concerts/${concertId}`)
 
-      expect(screen.getByText(/찾는 공연이 없어요/)).toBeInTheDocument()
+      expect(screen.getByText(/찾는 공연이 없습니다/)).toBeInTheDocument()
       expect(requests).toHaveLength(0)
     },
   )
@@ -401,6 +401,11 @@ function serveScheduleLotteries(byScheduleId: Record<number, unknown>) {
 }
 
 describe('ConcertDetailPage 추첨 안내', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
   it('응모 중인 추첨이 있는 회차는 예매 패널에서 추첨 화면으로 이어진다', async () => {
     const serverNow = Date.now()
     serveDetail(detail(serverNow, [{}]))
@@ -464,7 +469,26 @@ describe('ConcertDetailPage 추첨 안내', () => {
     const panel = within(await bookingPanel())
 
     expect(await panel.findByRole('link', { name: '결과 보기' })).toHaveAccessibleDescription(
-      '추첨 완료 당첨 결과는 추첨 화면에서 봐요',
+      '추첨 완료 당첨 결과는 추첨 화면에서 확인할 수 있습니다',
+    )
+  })
+
+  it('승계까지 끝난 회차(DONE)는 추첨 화면 배지와 같은 "추첨 종료"로 보인다', async () => {
+    const serverNow = Date.now()
+    serveDetail(detail(serverNow, [{}]))
+    serveScheduleLotteries({
+      32: lotteryOf(32, {
+        status: 'DONE',
+        entryStartAt: iso(serverNow - 3 * DAY),
+        entryEndAt: iso(serverNow - 2 * DAY),
+        drawAt: iso(serverNow - DAY),
+      }),
+    })
+    renderRoutes(routes, '/concerts/7')
+    const panel = within(await bookingPanel())
+
+    expect(await panel.findByRole('link', { name: '결과 보기' })).toHaveAccessibleDescription(
+      '추첨 종료 당첨 결과는 추첨 화면에서 확인할 수 있습니다',
     )
   })
 
@@ -485,7 +509,10 @@ describe('ConcertDetailPage 추첨 안내', () => {
     expect(await panel.findByRole('link', { name: '추첨 응모' })).toBeInTheDocument()
   })
 
-  it('추첨 조회가 503이어도 다시 시도하지 않고, 예매 패널은 그대로이며 오류를 보이지 않는다', async () => {
+  it('추첨 조회가 503이면 3초 뒤 한 번만 다시 받고, 또 실패하면 예매 패널은 그대로이며 오류를 보이지 않는다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    // 재시도 간격의 흔들림(0~+20%)을 0으로 둬 3초에 맞춘다
+    vi.spyOn(Math, 'random').mockReturnValue(0)
     const serverNow = Date.now()
     serveDetail(detail(serverNow, [{}]))
     const answered = mockedResponses('/api/v1/schedules/32/lottery')
@@ -496,16 +523,50 @@ describe('ConcertDetailPage 추첨 안내', () => {
     )
     const { queryClient } = renderRoutes(routes, '/concerts/7')
     const panel = within(await bookingPanel())
+    await vi.waitFor(() => expect(answered).toEqual([503]))
+
+    // 3초가 되기 전에는 다시 받지 않는다
+    await tick(2000)
+    expect(answered).toEqual([503])
+    await tick(1500)
+    await vi.waitFor(() => expect(answered).toEqual([503, 503]))
 
     // 응답이 화면 상태에 닿을 때까지(조회가 error가 될 때까지) 기다린 뒤 "없음"을 본다
     await vi.waitFor(() =>
       expect(queryClient.getQueryState(lotteryQueryKeys.ofSchedule(32))?.status).toBe('error'),
     )
-    await act(async () => {})
-    expect(answered).toEqual([503])
+    await tick(10_000)
+    expect(answered).toEqual([503, 503])
     expect(panel.getByRole('link', { name: '예매하기' })).toBeInTheDocument()
     expect(panel.queryByRole('link', { name: /응모|추첨|결과/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('첫 추첨 조회가 503이어도 다시 받은 응답으로 안내를 보인다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const serverNow = Date.now()
+    serveDetail(detail(serverNow, [{}]))
+    const lottery = lotteryOf(32, {
+      entryStartAt: iso(serverNow - HOUR),
+      entryEndAt: iso(serverNow + DAY),
+      drawAt: iso(serverNow + DAY + HOUR),
+    })
+    const answered = mockedResponses('/api/v1/schedules/32/lottery')
+    mockServer.use(
+      http.get('/api/v1/schedules/:scheduleId/lottery', () =>
+        answered.length === 0
+          ? fail(503, 'SERVICE_UNAVAILABLE', '잠시 후 다시 시도해 주세요')
+          : ok(lottery),
+      ),
+    )
+    renderRoutes(routes, '/concerts/7')
+    const panel = within(await bookingPanel())
+    await vi.waitFor(() => expect(answered).toEqual([503]))
+
+    // 재시도 간격은 흔들림을 더해 최대 3.6초다
+    await tick(4000)
+    expect(await panel.findByRole('link', { name: '추첨 응모' })).toBeInTheDocument()
+    expect(answered).toEqual([503, 200])
   })
 
   it('보는 중에 응모 시작 시각을 지나면 새로고침 없이 응모 예정에서 응모 중으로 바뀐다', async () => {

@@ -6,7 +6,11 @@ spring:
     username: ${DB_USER:iseonjwa}
     password: ${DB_PASSWORD}
     hikari:
+      # Note: 5를 유지한다(ADR 0064, ISE-237). 개선 뒤 배포 O1에서 커넥션 대기 0, 풀 10은 CPU 포화로 오히려 느렸다
       maximum-pool-size: 5
+      # Note: 커넥션을 1초 안에 못 받으면 실패시킨다(ISE-196). 기본값 30초는 Gateway 응답 시한(3초)보다 길어,
+      # Gateway가 이미 포기한 요청을 서버가 끝까지 기다리다 처리해 부하가 끝난 뒤에도 회복하지 못했다(k6-overload-recovery.md R1)
+      connection-timeout: 1000
   kafka:
     producer:
       properties:
@@ -18,12 +22,41 @@ spring:
         linger.ms: 0
     consumer:
       group-id: reservation-service.bootstrap
+management:
+  metrics:
+    distribution:
+      # 서버 쪽 p95·p99를 Prometheus에서 계산하려고 HTTP 지연 히스토그램을 고정 버킷으로 켠다(ISE-277).
+      # Note: percentiles-histogram(약 70개 버킷) 대신 선점 SLO 근처 버킷만 둔다. 버킷 하나가 URI·상태 조합마다
+      # 시계열 하나라, 버킷 수가 곧 늘어나는 시계열 수다. 이 서비스에만 켜고 다른 서비스는 바꾸지 않는다
+      slo:
+        http.server.requests: 25ms,50ms,100ms,200ms,300ms,500ms,1s,3s
 messaging:
   outbox:
     # 임대는 전송 시한(send-timeout)의 2배 이상이어야 한다. 어긋나면 기동이 실패한다
     batch-size: 20
     lease: 30s
     send-timeout: 12s
+seat-hold:
+  # sync(동기형 선점 201, 기본) 또는 async(접수형 202). 기동할 때 한 번 읽으므로 바꾸려면 재시작한다(ADR 0057)
+  mode: sync
+  # 접수형 소비자(ISE-17). 모드와 상관없이 늘 켠다
+  consumer:
+    # 토픽 파티션은 늘리기만 된다. 동시성보다 넉넉히 둔다
+    partitions: 6
+    # 동시성 하나가 처리 중에 커넥션 하나를 쥔다. 풀(maximum-pool-size)을 HTTP와 나눠 쓴다
+    concurrency: 2
+    # 좌석·매수 행 잠금 대기 시한. 기다리는 동안 그 스레드가 맡은 파티션의 뒤 메시지가 멈춰 동기형(50ms, ADR 0061)보다 길게 두지 않는다
+    lock-timeout: 50ms
+seathold:
+  expiry:
+    # 만료 스케줄러 주기. 코드 기본값 5초에서는 한 주기 100건 뒤 5초를 쉬어 회수가 초당 약 17건에 묶였다.
+    # 1초면 쉬는 시간이 줄어 같은 커넥션 하나로 더 빨리 회수한다(측정: docs/design/reservation/seathold-pre-deploy-measurements.md)
+    interval: 1s
+lottery:
+  scheduler:
+    # 배정 워커가 한 주기(assign-interval 1초 쉼)에 성공 배정하는 상한. 초당 약 8~9건으로 자동결제(초당 약 9.5건)에 맞춰,
+    # 추첨 직후 배정이 다른 회차 선점과 커넥션 풀·DB를 몰아 쓰지 않게 한다(ISE-94 시나리오 3, numbers-and-measurement.md 3-7절)
+    assign-per-cycle: 10
 queue:
   admit-per-second: 50
   entry-token-ttl: 10m
@@ -36,10 +69,26 @@ queue:
   schedule-cache-refresh: 30s
   schedule-cache-look-ahead: 1h
   key-retention-after-start: 1h
+  turn-ttl: 1m
+  redis:
+    # 대기열 Redis 차단기 설정
+    circuit-breaker:
+      sliding-window-size: 10
+      minimum-number-of-calls: 500
+      failure-rate-threshold: 50
+      slow-call-duration-threshold: 100ms
+      slow-call-rate-threshold: 80
+      wait-duration-in-open-state: 5s
+      permitted-number-of-calls-in-half-open-state: 20
 entry-token:
   # 입장 토큰 발급 키. 키는 환경변수로만 주입하고 저장소에는 이름만 둔다(docs/design/queue/contracts.md 1절)
   secret: ${ENTRY_TOKEN_SECRET:}
 payment:
   token:
-    # 결제 토큰 발급 키. 키는 환경변수로만 주입하고 저장소에는 이름만 둔다(ADR 0025)
-    secret: ${PAYMENT_TOKEN_SECRET:}
+    # 결제 토큰 서명 개인키(ES256, PKCS#8 DER의 Base64 한 줄). 환경변수로만 주입하고 저장소에는 이름만 둔다(ADR 0055)
+    private-key: ${PAYMENT_TOKEN_PRIVATE_KEY:}
+observability:
+  scheduler-redis-spans:
+    # 예약 작업 바로 아래 Redis 명령 스팬을 Zipkin으로 보낼지 정한다. 평시 스팬의 약 87%라 기본은 보내지 않는다(TS-54).
+    # 스케줄러 실행 안의 느린 호출을 파고들 때만 true로 켜고 서비스를 다시 띄운다. lettuce_* 지표는 이 값과 상관없이 남는다
+    export: false

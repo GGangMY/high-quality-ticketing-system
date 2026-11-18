@@ -8,6 +8,22 @@ junhyun이 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 판단 대상 | AI | 판단 | 공통 | 발표 후보 | 기록 |
 |---|---|---|---|---|---|---|
+| 2026-11-17 | **README를 브로셔 내용으로 꾸미자는 AI 안 대신, 프로젝트를 드러내는 README를 따로 쓰기로 함(배포 서버는 이번 주에 내림)** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-17-readme-not-brochure-copy.md) |
+| 2026-11-16 | **공개 Grafana를 "로그인 없이 볼 수 있다"고 쓴 AI의 브로셔 문장이 실제와 다르다고 지적함(원인은 메모리 상한 재시작)** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-16-grafana-unauthorized-memory-not-viewer-account.md) |
+| 2026-11-16 | **Swagger PR(#685)에 contract 이슈와 다른 담당 리뷰어를 두자는 제안을 거부하고 바로 머지하기로 함** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-16-swagger-pr-no-contract-no-reviewer.md) |
+| 2026-11-16 | **AI가 쓴 브로셔 문장 중 번역체·어색한 표현을 한국어 원문처럼 고치게 함** | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-16-brochure-natural-korean-not-translationese.md) |
+| 2026-11-16 | 소개 영상 v2에서 하린을 웹툰풍으로 화면에 세우고 VoiceStudio 목소리 H2·N1을 고르고, AI가 짚은 대로 실제 동작과 다른 장면 6을 결제사 연결 불안정으로 바꿈 | Claude Code, codex | 부분 수용 | 예 | 아님 | [기록](2026-11-16-intro-video-v2-character-voice.md) |
+| 2026-11-16 | 최종 발표의 중심을 AI 활용에서 백엔드 설계·구현과 그 지표로 바꾸고, AI 검증 방법은 1분 내외로 줄임 | Claude Code | 거부 | 예 | 아님 | [기록](2026-11-16-final-talk-center-backend-metrics.md) |
+| 2026-11-16 | **HTTPS 전환에서 파일마다 박힌 서버 주소를 https로 하나씩 고치려던 방향을 거부하고, 주소를 서버 .env의 PUBLIC_URL 한 곳에서 읽게 함** | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-16-server-address-in-one-env-key.md) |
+| 2026-11-16 | 시연과 외부 심사 채점 때 심사위원이 직접 보도록 Grafana만 HTTPS 경로(/grafana/)로 누구나 보기 전용으로 열기로 함 | Claude Code | 수용 | 예 | 아님 | [기록](2026-11-16-grafana-public-over-https-path.md) |
+| 2026-11-14 | 발표 자료 세 가지(2분 영상, Notion 브로셔, 10분 발표)의 축과 형식을 AI 선택지에서 고르고, 브로셔 형식·영상 소리·AI 축 줄기·발표자·디자인은 직접 정함 | Claude Code | 부분 수용 | 예 | 아님 | [기록](2026-11-14-presentation-materials-plan.md) |
+| 2026-11-13 | 호출 한도가 있어 CodeRabbit을 넣지 않고, AI 코드 리뷰는 저장소 프롬프트와 스크립트로만 하기로 함 | Claude Code | **거부** | 예 | 후보 | [기록](2026-11-13-no-coderabbit-prompt-review-only.md) |
+| 2026-11-13 | 다른 조 저장소에서 스택과 결정이 아니라 형식과 판단 방식만 가져오기로 하고, 바로 할 것 두 가지와 전체 적용 설계·CodeRabbit 적용까지 맡김 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-borrow-formats-not-stacks-from-other-teams.md) |
+| 2026-11-13 | 팀원 지시문이 Claude Code 세션만 전제했다는 지적으로, 필수 산출물 작업을 팀원 모두가 도구와 상관없이 돌리게 바꿈 | Claude Code | **거부** | 예 | 아님 | [기록](2026-11-13-deliverables-for-all-teammates-any-tool.md) |
+| 2026-11-13 | 발표 전 보완 제안(빈 필수 산출물, AI 코드 검토 방법, AI 대표 사례)을 받아들이고, 11/11 취소된 Synthetic Data를 발제 필수 항목으로 되살림 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-13-fill-presentation-gaps-restore-synthetic-data.md) |
+| 2026-11-12 | 추첨 쪽이 요청한 PG 허가 조정(ISE-236)에 일반 결제 허가는 17보다 큰 24~30(PAY1-b 측정 뒤 확정), 자동결제는 전용 그룹 `pg-billing` 3으로 답하기로 함 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-12-pg-permits-approve-and-billing-group.md) |
+| 2026-11-11 | 시스템 구조도의 "EC2 컨테이너 분리"를 컨테이너별 메모리 상한 표시로 읽은 AI 해석을 바로잡고, Jenkins EC2와 부하 발생기 EC2를 그림에 넣게 함 | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-11-system-diagram-ec2-scope.md) |
+| 2026-11-11 | AI 브리핑이 멘션 알림만 보고 이미 끝난 ISE-224 웹훅 일(서버 `.env`에 이미 있음, 이슈 Done)을 남은 일로 넣었다고 지적함 | Claude Code | **거부** | 아니오 | 아님 | [기록](2026-11-11-briefing-listed-finished-webhook.md) |
 | 2026-11-11 | 결제 쪽 취소 환불을 위해 기다리던 예매 취소 API(ISE-206)를 직접 만들기로 하고, 취소 정책(공연 시작 전까지·추첨 예매 제외·결제 조회로 환불 상태 표시·담당 변경)은 AI 추천안을 받아들임 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-11-reservation-cancel-takeover-policy.md) |
 | 2026-11-10 | AI의 "남은 마감 작업" 정리가 내게 배정된 이슈만 훑어 멘션으로 받은 일(ISE-227·ISE-192)을 빠뜨렸다고 지적함 | Claude Code | **거부** | 아니오 | 후보 | [기록](2026-11-10-remaining-work-missed-mentions.md) |
 | 2026-11-10 | 토스 테스트 결제창도 실제 카드 인증이 필요해 "토스연동 건너뛰고 결제하기"를 두기로 하고, 결제마다 PG를 기록하며 빌링은 늘 Mock으로 보내는 추천안을 수용함 | Claude Code | 수용 | 예 | 후보 | [기록](2026-11-10-toss-mock-bypass-per-payment-pg.md) |
@@ -72,6 +88,10 @@ junhyun이 AI 응답·제안에 내린 판단이다. 작성 절차는 [`ai-judgm
 
 | 날짜 | 일지 |
 |---|---|
+| 2026-11-17 | [daily/2026-11-17.md](daily/2026-11-17.md) |
+| 2026-11-16 | [daily/2026-11-16.md](daily/2026-11-16.md) |
+| 2026-11-13 | [daily/2026-11-13.md](daily/2026-11-13.md) |
+| 2026-11-12 | [daily/2026-11-12.md](daily/2026-11-12.md) |
 | 2026-11-11 | [daily/2026-11-11.md](daily/2026-11-11.md) |
 | 2026-11-10 | [daily/2026-11-10.md](daily/2026-11-10.md) |
 | 2026-11-09 | [daily/2026-11-09.md](daily/2026-11-09.md) |
