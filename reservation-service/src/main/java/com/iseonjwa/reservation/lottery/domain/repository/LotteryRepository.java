@@ -57,9 +57,14 @@ public interface LotteryRepository {
     Optional<Integer> lockForSuccession(Long id);
 
     /**
-     * 미종결 응모(WON·WAITLISTED)가 없어 종결 후보인 DRAWN 추첨 ID를 읽는다.
+     * 미종결 응모(WON·WAITLISTED·ENTERED)가 없어 종결 후보인 DRAWN 추첨 ID를 읽는다.
      */
     List<Long> findFinishDueIds();
+
+    /**
+     * 추첨은 끝났지만 낙첨 처리 전인 ENTERED 응모가 남은 DRAWN 추첨 ID를 추첨 시각 순으로 읽는다.
+     */
+    List<Long> findLostPendingIds();
 
     /**
      * 종결할 DRAWN 추첨 행을 승계 워커와 같은 행 잠금으로 호출한 쪽 트랜잭션이 끝날 때까지 잠근다.

@@ -71,8 +71,8 @@ public class JpaLotteryEntryRepository implements LotteryEntryRepository {
     }
 
     @Override
-    public int markRemainingLost(Long lotteryId) {
-        return springDataLotteryEntryRepository.markRemainingLost(lotteryId);
+    public int markLostChunk(Long lotteryId, int limit) {
+        return springDataLotteryEntryRepository.markLostChunk(lotteryId, limit);
     }
 
     @Override

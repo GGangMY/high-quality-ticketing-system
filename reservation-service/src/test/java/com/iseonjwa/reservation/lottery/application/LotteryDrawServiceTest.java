@@ -1,5 +1,6 @@
 package com.iseonjwa.reservation.lottery.application;
 
+import com.iseonjwa.reservation.lottery.domain.repository.LotteryEntryRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,9 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +26,12 @@ class LotteryDrawServiceTest {
 
     @Autowired
     LotteryDrawService drawService;
+    @Autowired
+    LotteryFinishService finishService;
+    @Autowired
+    LotteryEntryRepository entryRepository;
+    @Autowired
+    TransactionTemplate tx;
     @Autowired
     JdbcTemplate jdbc;
 
@@ -71,8 +80,10 @@ class LotteryDrawServiceTest {
                 + " WHERE lottery_id = ?)", lotteryId);
 
         assertTrue(drawService.draw(lotteryId));
+        drawService.settleLost(lotteryId);
 
         assertEquals("DRAWN", statusOf(lotteryId));
+        assertEquals(0, countEntries(lotteryId, "ENTERED"));
         var counts = jdbc.queryForList("SELECT status, count(*) AS n, coalesce(sum(quantity), 0) AS seats,"
                 + " count(draw_rank) AS ranked FROM lottery_entries WHERE lottery_id = ? GROUP BY status", lotteryId);
         Map<String, Map<String, Object>> byStatus = new java.util.HashMap<>();
@@ -130,13 +141,65 @@ class LotteryDrawServiceTest {
         long started = System.nanoTime();
         assertTrue(drawService.draw(lotteryId));
         long elapsedMillis = (System.nanoTime() - started) / 1_000_000;
+        long settleStarted = System.nanoTime();
+        int settled = drawService.settleLost(lotteryId);
+        long settleMillis = (System.nanoTime() - settleStarted) / 1_000_000;
 
-        System.out.println("[측정] 응모 30,000행·좌석 2,000석·예비 1,000명 추첨 시간: " + elapsedMillis + "ms");
+        System.out.println("[측정] 응모 30,000행·좌석 2,000석·예비 1,000명 추첨 트랜잭션: " + elapsedMillis
+                + "ms, 낙첨 마무리 " + settled + "건: " + settleMillis + "ms");
         assertTrue(elapsedMillis < 10_000, "추첨 시간 " + elapsedMillis + "ms");
+        assertEquals(0, countEntries(lotteryId, "ENTERED"));
         assertEquals(1000, jdbc.queryForObject("SELECT count(*) FROM lottery_entries WHERE lottery_id = ?"
                 + " AND status = 'WAITLISTED'", Integer.class, lotteryId));
         assertTrue(jdbc.queryForObject("SELECT sum(quantity) FROM lottery_entries WHERE lottery_id = ?"
                 + " AND status = 'WON'", Integer.class, lotteryId) <= 2000);
+    }
+
+    // 추첨 트랜잭션은 당첨·예비만 쓰고, 남은 응모는 커밋 뒤 마무리가 LOST로 바꾼다. 다시 불러도 바뀌는 행이 없다(멱등)
+    @Test
+    void 추첨은_낙첨을_쓰지_않고_마무리가_남은_응모를_LOST로_바꾼다() {
+        Long lotteryId = insertLottery("CLOSED", "now() - interval '2 hour'", "now() - interval '1 minute'", 2, 1, 0);
+        insertEntries(lotteryId, List.of(1, 1, 1, 1, 1, 1));
+
+        assertTrue(drawService.draw(lotteryId));
+
+        assertEquals(3, countEntries(lotteryId, "ENTERED"));
+        assertEquals(0, countEntries(lotteryId, "LOST"));
+        assertTrue(drawService.findLostPendingIds().contains(lotteryId));
+
+        assertEquals(3, drawService.settleLost(lotteryId));
+        assertEquals(0, countEntries(lotteryId, "ENTERED"));
+        assertEquals(3, countEntries(lotteryId, "LOST"));
+        assertFalse(drawService.findLostPendingIds().contains(lotteryId));
+        assertEquals(0, drawService.settleLost(lotteryId));
+    }
+
+    // 첫 청크만 커밋하고 멈춘 상황: 남은 ENTERED가 있는 동안 종결하지 않고, 다음 마무리가 나머지를 이어서 바꾼다
+    @Test
+    void 낙첨_마무리가_도중에_멈추면_종결을_미루고_다음_주기에_이어서_처리한다() {
+        Long lotteryId = insertLottery("CLOSED", "now() - interval '2 hour'", "now() - interval '1 minute'", 2000,
+                0, 0);
+        jdbc.update("INSERT INTO lottery_entries (lottery_id, request_id, user_id, quantity, status, created_at,"
+                + " updated_at) SELECT ?, gen_random_uuid(), 1000000 + g, 1, 'ENTERED', now(), now()"
+                + " FROM generate_series(1, 12000) g", lotteryId);
+        assertTrue(drawService.draw(lotteryId));
+        // 당첨자가 모두 결제해 끝나지 않은 응모는 ENTERED뿐이다
+        jdbc.update("UPDATE lottery_entries SET status = 'PAID' WHERE lottery_id = ? AND status = 'WON'", lotteryId);
+
+        Integer firstChunk = tx.execute(status -> entryRepository.markLostChunk(lotteryId, 5_000));
+        assertEquals(5_000, firstChunk);
+
+        assertEquals(5_000, countEntries(lotteryId, "ENTERED"));
+        assertFalse(finishService.findFinishDueIds().contains(lotteryId));
+        assertEquals(Optional.empty(), finishService.finish(lotteryId));
+        assertEquals("DRAWN", statusOf(lotteryId));
+        assertTrue(drawService.findLostPendingIds().contains(lotteryId));
+
+        assertEquals(5_000, drawService.settleLost(lotteryId));
+
+        assertEquals(0, countEntries(lotteryId, "ENTERED"));
+        assertEquals(10_000, countEntries(lotteryId, "LOST"));
+        assertTrue(finishService.findFinishDueIds().contains(lotteryId));
     }
 
     // 회차마다 추첨석 seatCount개(한 열에 50석씩)를 LOTTERY로 만든다
@@ -166,6 +229,11 @@ class LotteryDrawServiceTest {
                     + " updated_at) VALUES (?, gen_random_uuid(), ?, ?, 'ENTERED', now(), now())",
                     lotteryId, userId++, quantity);
         }
+    }
+
+    private int countEntries(Long lotteryId, String status) {
+        return jdbc.queryForObject("SELECT count(*) FROM lottery_entries WHERE lottery_id = ? AND status = ?",
+                Integer.class, lotteryId, status);
     }
 
     private String statusOf(Long lotteryId) {
