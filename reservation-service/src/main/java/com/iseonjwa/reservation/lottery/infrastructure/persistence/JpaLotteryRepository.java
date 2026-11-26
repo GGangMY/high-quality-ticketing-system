@@ -65,6 +65,11 @@ public class JpaLotteryRepository implements LotteryRepository {
     }
 
     @Override
+    public List<Long> findLostPendingIds() {
+        return springDataLotteryRepository.findLostPendingIds();
+    }
+
+    @Override
     public Optional<Lottery> lockForFinish(Long id) {
         return springDataLotteryRepository.lockForFinish(id);
     }

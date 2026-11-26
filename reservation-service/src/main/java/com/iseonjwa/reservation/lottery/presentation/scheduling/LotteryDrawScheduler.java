@@ -22,6 +22,7 @@ public class LotteryDrawScheduler {
     private final LotteryDrawService drawService;
     private final Timer drawTimer;
     private final Counter drawFailures;
+    private final Timer lostSettleTimer;
     // 연속 실패가 쌓이면 시간 초과가 반복된다는 뜻이라 0이 아니면 경보 대상이다(D8)
     private final AtomicInteger consecutiveFailures;
 
@@ -32,6 +33,9 @@ public class LotteryDrawScheduler {
                 .register(meterRegistry);
         this.drawFailures = Counter.builder("lottery.draw.failures")
                 .description("추첨 실패 횟수")
+                .register(meterRegistry);
+        this.lostSettleTimer = Timer.builder("lottery.draw.lost.settle.duration")
+                .description("추첨 뒤 남은 응모를 낙첨으로 바꾸는 시간")
                 .register(meterRegistry);
         this.consecutiveFailures = meterRegistry.gauge("lottery.draw.consecutive.failures", new AtomicInteger());
     }
@@ -44,9 +48,15 @@ public class LotteryDrawScheduler {
         }
     }
 
-    // 추첨 하나가 실패해도 다음 추첨은 계속하고, 실패한 추첨은 CLOSED로 남아 다음 주기에 다시 시도된다
+    // 추첨 하나가 실패해도 다음 추첨은 계속하고, 실패한 추첨은 CLOSED로 남아 다음 주기에 다시 시도된다.
+    // 낙첨 마무리는 같은 주기에서 추첨 뒤에 돌아 방금 추첨한 추첨도 바로 이어 처리한다.
     @Scheduled(fixedDelayString = "${lottery.scheduler.draw-interval:10s}")
     public void drawDueLotteries() {
+        drawLotteries();
+        settleLostEntries();
+    }
+
+    private void drawLotteries() {
         for (Long lotteryId : drawService.findDrawDueIds()) {
             try {
                 boolean drawn = drawTimer.recordCallable(() -> drawService.draw(lotteryId));
@@ -58,6 +68,20 @@ public class LotteryDrawScheduler {
                 drawFailures.increment();
                 consecutiveFailures.incrementAndGet();
                 log.error("추첨 실행 실패: lotteryId={}", lotteryId, exception);
+            }
+        }
+    }
+
+    // 실패해도 이미 커밋한 청크는 남고, ENTERED가 남은 추첨은 다음 주기에 다시 집힌다
+    private void settleLostEntries() {
+        for (Long lotteryId : drawService.findLostPendingIds()) {
+            try {
+                int settled = lostSettleTimer.recordCallable(() -> drawService.settleLost(lotteryId));
+                if (settled > 0) {
+                    log.info("낙첨 처리 완료: lotteryId={}, 응모={}건", lotteryId, settled);
+                }
+            } catch (Exception exception) {
+                log.error("낙첨 처리 실패: lotteryId={}", lotteryId, exception);
             }
         }
     }

@@ -44,9 +44,9 @@ public interface LotteryEntryRepository {
     void saveDrawResults(List<DrawResult> results);
 
     /**
-     * 남은 ENTERED를 순위 없이 한 문장으로 LOST로 바꾼다(11/2 결정).
+     * 추첨 트랜잭션 밖에서 남은 ENTERED를 순위 없이 최대 limit행 LOST로 바꾸고 바꾼 수를 돌려준다(11/2 결정, D8).
      */
-    int markRemainingLost(Long lotteryId);
+    int markLostChunk(Long lotteryId, int limit);
 
     /**
      * 아직 예매가 없는 당첨 응모 하나를 순위 순으로 집어, 호출한 쪽 트랜잭션이 끝날 때까지 행 잠금을 건다(SKIP LOCKED, D10).
@@ -111,7 +111,7 @@ public interface LotteryEntryRepository {
     int closeExpiredWaitlists();
 
     /**
-     * 종결 전 확인으로, 끝나지 않은 응모(WON, 또는 승계될 수 있는 WAITLISTED)가 있는지 본다(D14).
+     * 종결 전 확인으로, 끝나지 않은 응모(WON, 승계될 수 있는 WAITLISTED, 낙첨 처리 전인 ENTERED)가 있는지 본다(D14).
      */
     boolean hasUnsettled(Long lotteryId);
 

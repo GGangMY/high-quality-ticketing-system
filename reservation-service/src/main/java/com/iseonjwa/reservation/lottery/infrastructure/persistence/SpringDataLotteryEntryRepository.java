@@ -58,12 +58,15 @@ interface SpringDataLotteryEntryRepository extends JpaRepository<LotteryEntry, L
             + " order by e.id")
     List<Object[]> findDrawEntrantRows(@Param("lotteryId") Long lotteryId);
 
+    // Note: SKIP LOCKED라 여러 인스턴스가 같은 추첨을 마무리해도 서로 기다리지 않고 다른 행을 집는다. 대상 행은 (lottery_id, status, draw_rank) 인덱스로 찾는다.
     @Modifying
     @Query(nativeQuery = true, value = """
             UPDATE lottery_entries SET status = 'LOST', updated_at = now()
-            WHERE lottery_id = :lotteryId AND status = 'ENTERED'
+            WHERE id IN (SELECT id FROM lottery_entries
+                         WHERE lottery_id = :lotteryId AND status = 'ENTERED'
+                         LIMIT :limit FOR UPDATE SKIP LOCKED)
             """)
-    int markRemainingLost(@Param("lotteryId") Long lotteryId);
+    int markLostChunk(@Param("lotteryId") Long lotteryId, @Param("limit") int limit);
 
     // Note: FOR UPDATE OF e SKIP LOCKED로 여러 워커가 같은 당첨자를 두 번 배정하지 않고, 잡힌 행은 건너뛰어 한 명이 늦어도 나머지 배정이 막히지 않는다.
     @Query(nativeQuery = true, value = """
@@ -153,7 +156,7 @@ interface SpringDataLotteryEntryRepository extends JpaRepository<LotteryEntry, L
 
     @Query(nativeQuery = true, value = """
             SELECT EXISTS (SELECT 1 FROM lottery_entries
-                           WHERE lottery_id = :lotteryId AND status IN ('WON', 'WAITLISTED'))
+                           WHERE lottery_id = :lotteryId AND status IN ('WON', 'WAITLISTED', 'ENTERED'))
             """)
     boolean hasUnsettled(@Param("lotteryId") Long lotteryId);
 

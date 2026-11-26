@@ -60,10 +60,19 @@ interface SpringDataLotteryRepository extends JpaRepository<Lottery, Long> {
             SELECT l.id FROM lotteries l
             WHERE l.status = 'DRAWN' AND l.deleted_at IS NULL
               AND NOT EXISTS (SELECT 1 FROM lottery_entries e
-                              WHERE e.lottery_id = l.id AND e.status IN ('WON', 'WAITLISTED'))
+                              WHERE e.lottery_id = l.id AND e.status IN ('WON', 'WAITLISTED', 'ENTERED'))
             ORDER BY l.draw_at, l.id
             """)
     List<Long> findFinishDueIds();
+
+    @Query(nativeQuery = true, value = """
+            SELECT l.id FROM lotteries l
+            WHERE l.status = 'DRAWN' AND l.deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM lottery_entries e
+                          WHERE e.lottery_id = l.id AND e.status = 'ENTERED')
+            ORDER BY l.draw_at, l.id
+            """)
+    List<Long> findLostPendingIds();
 
     @Query(nativeQuery = true, value = """
             SELECT * FROM lotteries WHERE id = :id AND status = 'DRAWN' AND deleted_at IS NULL
